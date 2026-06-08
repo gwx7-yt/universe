@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CosmoScope — Immersive Universe Explorer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main id="app" aria-label="CosmoScope immersive astronomy simulation platform">
+    <canvas id="cosmosCanvas" aria-label="Interactive WebGL universe simulation"></canvas>
+
+    <header class="mission-bar">
+      <div>
+        <span class="kicker">CosmoScope</span>
+        <h1>Immersive Universe Explorer</h1>
+      </div>
+      <nav class="mode-switcher" aria-label="Simulation engines">
+        <button class="mode-button active" data-mode="scale" type="button">Scale</button>
+        <button class="mode-button" data-mode="stellar" type="button">Stellar</button>
+        <button class="mode-button" data-mode="blackhole" type="button">Black Hole</button>
+      </nav>
+    </header>
+
+    <section class="command-panel" aria-label="Simulation controls">
+      <div class="panel-section" data-panel="scale">
+        <label for="scaleZoom">Logarithmic scale flight</label>
+        <input id="scaleZoom" type="range" min="0" max="14" value="3" step="0.001">
+        <div class="readout-line"><span id="scaleName">Earth</span><span id="scaleDistance">12,742 km</span></div>
+        <p id="scaleBrief" class="brief-text">Scroll or drag to travel through one continuous scene.</p>
+      </div>
+
+      <div class="panel-section hidden" data-panel="stellar">
+        <label for="stellarMass">Initial stellar mass</label>
+        <input id="stellarMass" type="range" min="0" max="4" value="1" step="1">
+        <div class="readout-line"><span id="stellarMassLabel">1 Solar Mass</span><span id="stellarStage">Main Sequence</span></div>
+        <button id="runEvolution" class="quiet-button" type="button">Run Stellar Evolution</button>
+        <p id="stellarBrief" class="brief-text">The star itself is the interface: mass changes size, color, lifespan, and fate.</p>
+      </div>
+
+      <div class="panel-section hidden" data-panel="blackhole">
+        <label for="blackHoleMass">Black hole mass</label>
+        <input id="blackHoleMass" type="range" min="3" max="80" value="12" step="0.1">
+        <label for="objectDistance">Spawn distance</label>
+        <input id="objectDistance" type="range" min="10" max="180" value="92" step="1">
+        <div class="sandbox-tools">
+          <button class="quiet-button" data-spawn="star" type="button">Spawn Star</button>
+          <button class="quiet-button" data-spawn="ship" type="button">Spawn Spacecraft</button>
+          <button class="quiet-button" data-spawn="particles" type="button">Spawn Particles</button>
+        </div>
+      </div>
+    </section>
+
+    <aside class="telemetry" aria-live="polite">
+      <div class="telemetry-row"><span>Mode</span><strong id="telemetryMode">Cosmic Scale Explorer</strong></div>
+      <div class="telemetry-row"><span>Primary</span><strong id="telemetryPrimary">Earth</strong></div>
+      <div class="telemetry-row"><span>Value</span><strong id="telemetryValue">12,742 km diameter</strong></div>
+      <div class="telemetry-row"><span>Physics</span><strong id="telemetryPhysics">Logarithmic scale</strong></div>
+      <p id="interactionHint">Drag to orbit. Scroll to fly through scale. Interact with controls for scientific data.</p>
+    </aside>
+
+    <div id="loadingScreen" class="loading-screen">
+      <div class="loading-orbit"></div>
+      <p>Initializing 50,000-star universe...</p>
+    </div>
+
+    <!-- Add classroom source links here later: NASA Eyes, NASA Solar System Exploration, ESA, Britannica, OpenStax Astronomy. -->
+  </main>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://esm.sh/three@0.165.0",
+        "three/addons/": "https://esm.sh/three@0.165.0/examples/jsm/"
+      }
+    }
+  </script>
+  <script type="module" src="script.js"></script>
+</body>
+</html>
