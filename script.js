@@ -42,7 +42,9 @@ const ui = {
   scaleLocation: document.querySelector("#scaleLocation"),
   scaleBrief: document.querySelector("#scaleBrief"),
   perspectiveText: document.querySelector("#perspectiveText"),
-  perspectiveGraphic: document.querySelector("#perspectiveGraphic")
+  perspectiveGraphic: document.querySelector("#perspectiveGraphic"),
+  journeySteps: document.querySelector("#journeySteps"),
+  journeyProgress: document.querySelector("#journeyProgress")
 };
 
 const scaleLevels = [
@@ -53,7 +55,7 @@ const scaleLevels = [
     metric: "1.7 m",
     location: "Nepal",
     description: "Ram stands on a quiet dark platform as the personal reference point for the whole journey.",
-    perspective: "More than 8 billion people live on Earth, yet each person occupies only a tiny fraction of our planet's surface.",
+    perspective: "One life can feel enormous from the inside, yet Ram stands as a single point on a planet shared by billions.",
     graphic: "people",
     type: "personal scale"
   },
@@ -64,7 +66,7 @@ const scaleLevels = [
     metric: "72 m",
     location: "Kathmandu, Nepal",
     description: "Dharahara rises above Ram, turning human height into architectural scale.",
-    perspective: "If Dharahara were stacked roughly 1,400 times, the tower would reach the Kármán Line, the commonly accepted boundary of space.",
+    perspective: "Dharahara feels tall from the street; stacked about 1,400 times, it would only begin to touch the edge of space.",
     graphic: "tower",
     type: "landmark scale"
   },
@@ -75,22 +77,41 @@ const scaleLevels = [
     metric: "~50 km² urban core",
     location: "Kathmandu Valley, Nepal",
     description: "Kathmandu becomes an abstract valley metropolis of roads, dense blocks, river corridors, and distant mountains.",
-    perspective: "Light can travel across central Kathmandu in a fraction of a millisecond, reminding us that cities feel large to humans but tiny on planetary scales.",
+    perspective: "Kathmandu can hold a lifetime of memories, yet light crosses its heart almost instantly.",
     graphic: "city",
     type: "geographic scale"
   },
-  { name: "Earth", reference: "Planet Earth", metricLabel: "Diameter", metric: "12,742 km", location: "Solar System", description: "A living planet with oceans, continents, clouds, polar ice, atmosphere, and a tiny city marker.", perspective: "A city becomes almost invisible on the planet that carries it.", graphic: "people", type: "planetary scale" },
-  { name: "Earth-Moon System", reference: "Earth and Moon", metricLabel: "Average distance", metric: "384,400 km", location: "Near-Earth space", description: "Earth sits at the center while the Moon revolves across a surprisingly large orbital gap.", perspective: "The space between Earth and the Moon is large enough to hold every planet in the Solar System side by side.", graphic: "city", type: "orbital scale" },
-  { name: "Solar System", reference: "Sun and planets", metricLabel: "Scale", metric: "100+ AU", location: "Sun's planetary system", description: "Planet markers, orbital paths, the asteroid belt, and the Kuiper belt replace Earth-Moon detail.", perspective: "Earth is no longer a world here; it is only one small point on one orbit.", graphic: "city", type: "planetary system" },
-  { name: "Oort Cloud", reference: "Comet cloud", metricLabel: "Outer reach", metric: "~100,000 AU", location: "Solar boundary", description: "The Solar System shrinks into a bright point inside a vast spherical swarm of comet particles.", perspective: "The Sun's influence fades so gradually that its outer boundary is a cloud, not a wall.", graphic: "city", type: "solar influence" },
-  { name: "Nearest Stars", reference: "Nearby stellar neighborhood", metricLabel: "Scale", metric: "Several light-years", location: "Local interstellar space", description: "The Sun becomes one marker among Alpha Centauri, Barnard's Star, Sirius, and other nearby lights.", perspective: "Even the nearest stars are separated by years of light travel through mostly empty space.", graphic: "city", type: "interstellar scale" },
-  { name: "Orion Arm", reference: "Local spiral arm", metricLabel: "Scale", metric: "Thousands of light-years", location: "Milky Way", description: "Nearby stars dissolve into a stellar river of nebulae and star-forming regions.", perspective: "Our Sun is one point inside a minor arm of a galaxy so large it takes hundreds of millions of years to orbit.", graphic: "city", type: "galactic neighborhood" },
-  { name: "Milky Way", reference: "Home galaxy", metricLabel: "Diameter", metric: "~100,000 light-years", location: "Local Group", description: "A full spiral galaxy appears with a bright bulge, dust lanes, and luminous arms.", perspective: "The Solar System is essentially invisible inside the galaxy that contains hundreds of billions of stars.", graphic: "city", type: "galactic scale" },
-  { name: "Local Group", reference: "Galaxy group", metricLabel: "Scale", metric: "~10 million light-years", location: "Local Group", description: "The Milky Way, Andromeda, Triangulum, and dwarf galaxies become separate islands of light.", perspective: "Galaxies are not alone; they drift through space in families.", graphic: "city", type: "galaxy group" },
-  { name: "Virgo Cluster", reference: "Galaxy cluster", metricLabel: "Scale", metric: "Tens of millions of light-years", location: "Virgo region", description: "Hundreds of galaxies form a dense cluster structure where the Milky Way becomes insignificant.", perspective: "At cluster scale, entire galaxies behave like individual points in a larger gravitational city.", graphic: "city", type: "cluster scale" },
-  { name: "Laniakea Supercluster", reference: "Supercluster basin", metricLabel: "Scale", metric: "~520 million light-years", location: "Laniakea", description: "Galaxy clusters become connected nodes as filament structures begin to dominate the view.", perspective: "Matter gathers into enormous rivers, and our galaxy rides inside one gravitational basin.", graphic: "city", type: "supercluster scale" },
-  { name: "Cosmic Web", reference: "Large-scale structure", metricLabel: "Scale", metric: "Billions of light-years", location: "Observable cosmos", description: "Glowing filaments and voids form an alien network of matter on the largest known scales.", perspective: "The universe resembles roots, lightning, and neurons because gravity builds structure from tiny early differences.", graphic: "city", type: "cosmic structure" },
-  { name: "Observable Universe", reference: "Cosmic horizon", metricLabel: "Diameter", metric: "~93 billion light-years", location: "Observable universe", description: "The entire cosmic web fits inside the horizon of light that has had time to reach us.", perspective: "Everything explored becomes microscopic compared with the observable universe.", graphic: "city", type: "cosmic horizon" }
+  { name: "Earth", reference: "Planet Earth", metricLabel: "Diameter", metric: "12,742 km", location: "Solar System", description: "A living planet with oceans, continents, clouds, polar ice, atmosphere, and a tiny city marker.", perspective: "Every road, temple, home, and hillside in Kathmandu becomes a tiny mark on Earth's turning surface.", graphic: "people", type: "planetary scale" },
+  { name: "Earth-Moon System", reference: "Earth and Moon", metricLabel: "Average distance", metric: "384,400 km", location: "Near-Earth space", description: "Earth sits at the center while the Moon revolves across a surprisingly large orbital gap.", perspective: "The Moon feels close in the sky, but the darkness between us is wide enough to humble every planet.", graphic: "city", type: "orbital scale" },
+  { name: "Solar System", reference: "Sun and planets", metricLabel: "Scale", metric: "100+ AU", location: "Sun's planetary system", description: "Planet markers, orbital paths, the asteroid belt, and the Kuiper belt replace Earth-Moon detail.", perspective: "Our world becomes one moving spark in the Sun's wide family of orbits.", graphic: "city", type: "planetary system" },
+  { name: "Oort Cloud", reference: "Comet cloud", metricLabel: "Outer reach", metric: "~100,000 AU", location: "Solar boundary", description: "The Solar System shrinks into a bright point inside a vast spherical swarm of comet particles.", perspective: "The Sun does not end suddenly; it fades into a silent cloud of ancient comets.", graphic: "city", type: "solar influence" },
+  { name: "Nearest Stars", reference: "Nearby stellar neighborhood", metricLabel: "Scale", metric: "Several light-years", location: "Local interstellar space", description: "The Sun becomes one marker among Alpha Centauri, Barnard's Star, Sirius, and other nearby lights.", perspective: "Between neighboring stars lies a darkness so wide that light itself needs years to cross it.", graphic: "city", type: "interstellar scale" },
+  { name: "Orion Arm", reference: "Local spiral arm", metricLabel: "Scale", metric: "Thousands of light-years", location: "Milky Way", description: "Nearby stars dissolve into a stellar river of nebulae and star-forming regions.", perspective: "The Sun becomes a grain inside a luminous river of stars and nebulae.", graphic: "city", type: "galactic neighborhood" },
+  { name: "Milky Way", reference: "Home galaxy", metricLabel: "Diameter", metric: "~100,000 light-years", location: "Local Group", description: "A full spiral galaxy appears with a bright bulge, dust lanes, and luminous arms.", perspective: "Everything we call home vanishes inside a spiral city of hundreds of billions of suns.", graphic: "city", type: "galactic scale" },
+  { name: "Local Group", reference: "Galaxy group", metricLabel: "Scale", metric: "~10 million light-years", location: "Local Group", description: "The Milky Way, Andromeda, Triangulum, and dwarf galaxies become separate islands of light.", perspective: "Even galaxies have neighbors; islands of stars drift together through deep time.", graphic: "city", type: "galaxy group" },
+  { name: "Virgo Cluster", reference: "Galaxy cluster", metricLabel: "Scale", metric: "Tens of millions of light-years", location: "Virgo region", description: "Hundreds of galaxies form a dense cluster structure where the Milky Way becomes insignificant.", perspective: "Whole galaxies become lights in a cluster, like windows in an impossible cosmic city.", graphic: "city", type: "cluster scale" },
+  { name: "Laniakea Supercluster", reference: "Supercluster basin", metricLabel: "Scale", metric: "~520 million light-years", location: "Laniakea", description: "Galaxy clusters become connected nodes as filament structures begin to dominate the view.", perspective: "Our galaxy rides within a vast current of matter flowing through the universe.", graphic: "city", type: "supercluster scale" },
+  { name: "Cosmic Web", reference: "Large-scale structure", metricLabel: "Scale", metric: "Billions of light-years", location: "Observable cosmos", description: "Glowing filaments and voids form an alien network of matter on the largest known scales.", perspective: "At the largest scales, matter becomes a glowing web of roots, lightning, and memory.", graphic: "city", type: "cosmic structure" },
+  { name: "Observable Universe", reference: "Cosmic horizon", metricLabel: "Diameter", metric: "~93 billion light-years", location: "Observable universe", description: "The entire cosmic web fits inside the horizon of light that has had time to reach us.", perspective: "Every mountain, city, person, planet, star, and galaxy explored so far fits inside this boundary.", graphic: "city", type: "cosmic horizon" }
+];
+
+
+const journeyLabels = [
+  "Human",
+  "Dharahara",
+  "Kathmandu",
+  "Earth",
+  "Earth-Moon System",
+  "Solar System",
+  "Oort Cloud",
+  "Nearest Stars",
+  "Orion Arm",
+  "Milky Way",
+  "Local Group",
+  "Virgo Cluster",
+  "Laniakea Supercluster",
+  "Cosmic Web",
+  "Observable Universe"
 ];
 
 const state = {
@@ -966,6 +987,11 @@ function updatePanels(levelIndex) {
   ui.scaleBrief.textContent = level.description;
   ui.perspectiveText.textContent = level.perspective;
   ui.perspectiveGraphic.dataset.graphic = level.graphic;
+  ui.journeyProgress.style.setProperty("--journey-progress", `${(levelIndex / (scaleLevels.length - 1)) * 100}%`);
+  [...ui.journeySteps.children].forEach((step, index) => {
+    step.classList.toggle("active", index === levelIndex);
+    step.classList.toggle("passed", index < levelIndex);
+  });
   ui.perspectiveText.style.animation = "none";
   requestAnimationFrame(() => { ui.perspectiveText.style.animation = ""; });
 }
@@ -1038,6 +1064,18 @@ function preventBrowserPinchZoom(event) {
   if (event.touches?.length > 1) event.preventDefault();
 }
 
+function buildJourneySteps() {
+  ui.journeySteps.innerHTML = "";
+  journeyLabels.forEach((label, index) => {
+    const step = document.createElement("button");
+    step.type = "button";
+    step.className = "journey-step";
+    step.textContent = label;
+    step.addEventListener("click", () => setScaleTargetZoom(index));
+    ui.journeySteps.appendChild(step);
+  });
+}
+
 function connectEvents() {
   ui.scaleZoom.addEventListener("input", () => { state.targetZoom = Number(ui.scaleZoom.value); });
   window.addEventListener("wheel", event => {
@@ -1070,6 +1108,7 @@ function animate() {
 }
 
 buildScaleScene();
+buildJourneySteps();
 connectEvents();
 updatePanels(0);
 setTimeout(() => ui.loading.classList.add("hidden"), 700);

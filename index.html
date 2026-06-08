@@ -10,16 +10,13 @@
   <main id="app" aria-label="CosmoScope cosmic scale explorer">
     <canvas id="cosmosCanvas" aria-label="Interactive WebGL cosmic scale simulation"></canvas>
 
-    <header class="mission-bar">
-      <div>
-        <span class="kicker">CosmoScope</span>
-        <h1>Cosmic Scale Explorer</h1>
-      </div>
-    </header>
-
     <section class="command-panel" aria-label="Scale controls and current scientific information">
-      <label for="scaleZoom">Logarithmic scale flight</label>
-      <input id="scaleZoom" type="range" min="0" max="14" value="0" step="0.001">
+      <label for="scaleZoom">Scale Navigation</label>
+      <input id="scaleZoom" class="scale-range" type="range" min="0" max="14" value="0" step="0.001" aria-label="Travel through cosmic scale levels">
+      <div class="scale-navigator" aria-label="Journey through scale hierarchy">
+        <div class="journey-rail"><span id="journeyProgress"></span></div>
+        <div id="journeySteps" class="journey-steps"></div>
+      </div>
       <div class="readout-line"><span>Scale</span><strong id="scaleName">Human</strong></div>
       <div class="readout-line"><span>Reference</span><strong id="scaleReference">Ram</strong></div>
       <div class="readout-line"><span id="scaleMetricLabel">Approx. height</span><strong id="scaleMetric">1.7 m</strong></div>
@@ -29,7 +26,7 @@
 
     <aside class="perspective-panel" aria-live="polite" aria-label="Perspective discovery">
       <span class="panel-kicker">Perspective</span>
-      <p id="perspectiveText">More than 8 billion people live on Earth, yet each person occupies only a tiny fraction of our planet's surface.</p>
+      <p id="perspectiveText">One life can feel enormous from the inside, yet Ram stands as a single point on a planet shared by billions.</p>
       <div id="perspectiveGraphic" class="perspective-graphic" aria-hidden="true"></div>
     </aside>
 
