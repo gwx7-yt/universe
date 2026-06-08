@@ -272,23 +272,199 @@ function makeTextSprite(lines, color = "#f8f9fa") {
   return sprite;
 }
 
+
+function drawBlob(context, points, fill, stroke = "rgba(255,255,255,0.16)") {
+  context.beginPath();
+  points.forEach(([x, y], index) => {
+    if (index === 0) context.moveTo(x, y);
+    else context.lineTo(x, y);
+  });
+  context.closePath();
+  context.fillStyle = fill;
+  context.fill();
+  context.strokeStyle = stroke;
+  context.lineWidth = 2;
+  context.stroke();
+}
+
+function createEarthTexture() {
+  const textureCanvas = document.createElement("canvas");
+  textureCanvas.width = 2048;
+  textureCanvas.height = 1024;
+  const context = textureCanvas.getContext("2d");
+  const ocean = context.createLinearGradient(0, 0, 0, textureCanvas.height);
+  ocean.addColorStop(0, "#051b55");
+  ocean.addColorStop(0.52, "#073d86");
+  ocean.addColorStop(1, "#020d32");
+  context.fillStyle = ocean;
+  context.fillRect(0, 0, textureCanvas.width, textureCanvas.height);
+
+  // Broad continent shapes are hand-drawn on an equirectangular map so the globe
+  // reads as Earth without needing any network image assets.
+  drawBlob(context, [[960,200],[1130,170],[1320,235],[1450,330],[1390,470],[1240,520],[1100,470],[980,360]], "#6f8f42"); // Eurasia
+  drawBlob(context, [[1140,395],[1260,430],[1320,570],[1265,760],[1120,690],[1080,520]], "#b98954"); // Africa
+  drawBlob(context, [[710,235],[820,270],[875,420],[815,570],[700,505],[640,360]], "#2f7b45"); // North America
+  drawBlob(context, [[850,560],[930,650],[900,830],[820,935],[770,760]], "#477d3f"); // South America
+  drawBlob(context, [[1500,560],[1605,620],[1580,735],[1465,700]], "#b98b4d"); // Australia
+  drawBlob(context, [[960,130],[1230,115],[1430,165],[1320,210],[1030,205]], "#f4f6f8", "rgba(255,255,255,0.35)"); // Arctic
+  drawBlob(context, [[885,720],[1040,730],[1120,805],[980,850],[865,800]], "#f8f9fa", "rgba(255,255,255,0.28)"); // Antarctica hint
+
+  // Desert and mountain bands, including an Asia/Africa-facing look like the reference.
+  context.globalAlpha = 0.72;
+  drawBlob(context, [[1070,360],[1280,345],[1395,405],[1320,482],[1120,450]], "#d7ad72", "rgba(255,255,255,0.08)");
+  drawBlob(context, [[1010,455],[1130,465],[1195,570],[1130,650],[1060,560]], "#c8965f", "rgba(255,255,255,0.06)");
+  drawBlob(context, [[770,315],[830,335],[850,500],[800,535],[745,430]], "#d0b06f", "rgba(255,255,255,0.06)");
+  context.globalAlpha = 1;
+
+  // Fine procedural terrain noise and shallow-water coast glow.
+  for (let i = 0; i < 9000; i += 1) {
+    const x = Math.random() * textureCanvas.width;
+    const y = Math.random() * textureCanvas.height;
+    const hue = Math.random() > 0.45 ? "rgba(246,235,190,0.10)" : "rgba(20,80,32,0.13)";
+    context.fillStyle = hue;
+    context.fillRect(x, y, randomRange(1, 7), randomRange(1, 3));
+  }
+  for (let i = 0; i < 2200; i += 1) {
+    context.fillStyle = "rgba(80,210,230,0.18)";
+    context.beginPath();
+    context.arc(randomRange(0, textureCanvas.width), randomRange(210, 760), randomRange(0.4, 1.8), 0, Math.PI * 2);
+    context.fill();
+  }
+
+  const texture = new THREE.CanvasTexture(textureCanvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 8;
+  return texture;
+}
+
+function createCloudTexture() {
+  const textureCanvas = document.createElement("canvas");
+  textureCanvas.width = 2048;
+  textureCanvas.height = 1024;
+  const context = textureCanvas.getContext("2d");
+  context.clearRect(0, 0, textureCanvas.width, textureCanvas.height);
+  for (let i = 0; i < 520; i += 1) {
+    const x = randomRange(0, textureCanvas.width);
+    const y = randomRange(120, 900);
+    const width = randomRange(42, 190);
+    const height = randomRange(5, 24);
+    const gradient = context.createRadialGradient(x, y, 0, x, y, width);
+    gradient.addColorStop(0, "rgba(255,255,255,0.58)");
+    gradient.addColorStop(0.45, "rgba(255,255,255,0.22)");
+    gradient.addColorStop(1, "rgba(255,255,255,0)");
+    context.fillStyle = gradient;
+    context.beginPath();
+    context.ellipse(x, y, width, height, randomRange(-0.4, 0.4), 0, Math.PI * 2);
+    context.fill();
+  }
+  const texture = new THREE.CanvasTexture(textureCanvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 8;
+  return texture;
+}
+
+function createRealisticEarth(radius, showCityMarker = false) {
+  const group = new THREE.Group();
+  const earthMaterial = new THREE.MeshStandardMaterial({
+    map: createEarthTexture(),
+    roughness: 0.92,
+    metalness: 0.01,
+    emissive: 0x02091c,
+    emissiveIntensity: 0.12
+  });
+  const earth = new THREE.Mesh(new THREE.SphereGeometry(radius, 160, 96), earthMaterial);
+  earth.rotation.y = -0.9;
+  earth.name = "earthSurface";
+  group.add(earth);
+
+  const clouds = new THREE.Mesh(
+    new THREE.SphereGeometry(radius * 1.012, 160, 96),
+    new THREE.MeshStandardMaterial({ map: createCloudTexture(), transparent: true, opacity: 0.42, depthWrite: false })
+  );
+  clouds.name = "earthClouds";
+  clouds.rotation.y = -0.72;
+  group.add(clouds);
+
+  const atmosphere = new THREE.Mesh(
+    new THREE.SphereGeometry(radius * 1.045, 128, 64),
+    new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      uniforms: { glowColor: { value: new THREE.Color(0x4cc9f0) } },
+      vertexShader: "varying vec3 vNormal; void main(){ vNormal = normalize(normalMatrix * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
+      fragmentShader: "varying vec3 vNormal; uniform vec3 glowColor; void main(){ float rim = pow(1.0 - abs(vNormal.z), 2.7); gl_FragColor = vec4(glowColor, rim * 0.38); }"
+    })
+  );
+  group.add(atmosphere);
+
+  if (showCityMarker) {
+    const cityMarker = new THREE.Mesh(new THREE.SphereGeometry(radius * 0.018, 16, 8), new THREE.MeshBasicMaterial({ color: 0xffd166 }));
+    cityMarker.position.set(radius * 0.32, radius * 0.82, radius * 0.48);
+    group.add(cityMarker);
+  }
+  group.userData.earth = earth;
+  group.userData.clouds = clouds;
+  return group;
+}
+
 function createHumanLayer() {
   const group = new THREE.Group();
-  const silhouette = new THREE.MeshStandardMaterial({ color: 0x07090f, roughness: 0.62, metalness: 0.1 });
-  const glow = new THREE.MeshBasicMaterial({ color: 0x4cc9f0, transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending });
-  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.46, 1.35, 8, 18), silhouette);
-  torso.position.y = 1.55;
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.32, 32, 16), silhouette);
-  head.position.y = 2.55;
-  const aura = new THREE.Mesh(new THREE.CapsuleGeometry(0.62, 1.55, 8, 18), glow);
-  aura.position.y = 1.55;
-  group.add(torso, head, aura);
-  [[-0.42, 1.58, 0.22], [0.42, 1.58, -0.22], [-0.19, 0.62, 0.08], [0.19, 0.62, -0.08]].forEach(([x, y, z], index) => {
-    const limb = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.09, index < 2 ? 1.22 : 1.08, 16), silhouette);
-    limb.position.set(x, y, 0);
-    limb.rotation.z = z;
-    group.add(limb);
+  const skin = new THREE.MeshStandardMaterial({ color: 0xc58d6a, roughness: 0.7, metalness: 0.02 });
+  const hair = new THREE.MeshStandardMaterial({ color: 0x1c1210, roughness: 0.8 });
+  const shirt = new THREE.MeshStandardMaterial({ color: 0x18263d, roughness: 0.55, metalness: 0.08 });
+  const pants = new THREE.MeshStandardMaterial({ color: 0x121722, roughness: 0.72 });
+  const shoe = new THREE.MeshStandardMaterial({ color: 0x07090f, roughness: 0.65 });
+  const glow = new THREE.MeshBasicMaterial({ color: 0x4cc9f0, transparent: true, opacity: 0.09, blending: THREE.AdditiveBlending });
+
+  const hips = new THREE.Mesh(new THREE.CapsuleGeometry(0.32, 0.42, 8, 18), pants);
+  hips.position.y = 1.05;
+  hips.scale.set(1.15, 0.75, 0.62);
+  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.42, 1.0, 10, 24), shirt);
+  torso.position.y = 1.68;
+  torso.scale.set(1.0, 1.05, 0.52);
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.16, 0.22, 24), skin);
+  neck.position.y = 2.28;
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.28, 42, 24), skin);
+  head.position.y = 2.57;
+  head.scale.set(0.82, 1.05, 0.78);
+  const hairCap = new THREE.Mesh(new THREE.SphereGeometry(0.292, 36, 16, 0, Math.PI * 2, 0, Math.PI * 0.54), hair);
+  hairCap.position.y = 2.68;
+  hairCap.scale.set(0.84, 0.56, 0.8);
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.12, 12), skin);
+  nose.position.set(0, 2.56, 0.24);
+  nose.rotation.x = Math.PI / 2;
+  group.add(hips, torso, neck, head, hairCap, nose);
+
+  [[-0.46, 1.86, -0.18], [0.46, 1.86, 0.18]].forEach(([x, y, zRot], side) => {
+    const upper = new THREE.Mesh(new THREE.CapsuleGeometry(0.085, 0.62, 8, 16), shirt);
+    upper.position.set(x, y - 0.18, 0);
+    upper.rotation.z = zRot;
+    const forearm = new THREE.Mesh(new THREE.CapsuleGeometry(0.072, 0.58, 8, 16), skin);
+    forearm.position.set(x + (side === 0 ? -0.11 : 0.11), y - 0.72, 0.02);
+    forearm.rotation.z = zRot * 0.45;
+    const hand = new THREE.Mesh(new THREE.SphereGeometry(0.09, 18, 10), skin);
+    hand.position.set(x + (side === 0 ? -0.16 : 0.16), y - 1.08, 0.03);
+    hand.scale.set(0.8, 1.05, 0.55);
+    group.add(upper, forearm, hand);
   });
+
+  [[-0.18, 0.52, 0.05], [0.18, 0.52, -0.05]].forEach(([x, y, zRot], side) => {
+    const thigh = new THREE.Mesh(new THREE.CapsuleGeometry(0.105, 0.74, 8, 16), pants);
+    thigh.position.set(x, y + 0.17, 0);
+    thigh.rotation.z = zRot;
+    const shin = new THREE.Mesh(new THREE.CapsuleGeometry(0.09, 0.68, 8, 16), pants);
+    shin.position.set(x + (side === 0 ? -0.03 : 0.03), y - 0.42, 0);
+    shin.rotation.z = -zRot * 0.5;
+    const foot = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.1, 0.46), shoe);
+    foot.position.set(x + (side === 0 ? -0.05 : 0.05), 0.08, 0.12);
+    group.add(thigh, shin, foot);
+  });
+
+  const aura = new THREE.Mesh(new THREE.CapsuleGeometry(0.68, 1.75, 8, 18), glow);
+  aura.position.y = 1.48;
+  group.add(aura);
+
   const floor = new THREE.Mesh(new THREE.CircleGeometry(5.5, 96), new THREE.MeshStandardMaterial({ color: 0x080d16, roughness: 0.85, metalness: 0.35 }));
   floor.rotation.x = -Math.PI / 2;
   group.add(floor);
@@ -361,30 +537,36 @@ function createCityLayer() {
 }
 
 function createEarthLayer() {
-  const group = new THREE.Group();
-  const earth = new THREE.Mesh(new THREE.SphereGeometry(12, 128, 64), new THREE.MeshStandardMaterial({ color: 0x1d66d1, roughness: 0.72, metalness: 0.02, emissive: 0x031734, emissiveIntensity: 0.08 }));
-  group.add(earth);
-  const land = createPoints(1600, 12.08, 0x1e8f53, 0xb7a46a, { shell: true, size: 0.08, opacity: 0.85 });
-  group.add(land);
-  const clouds = createPoints(2300, 12.7, 0xffffff, 0xdde7ff, { shell: true, size: 0.11, opacity: 0.42 });
-  group.add(clouds);
-  const atmosphere = new THREE.Mesh(new THREE.SphereGeometry(12.9, 128, 64), new THREE.MeshBasicMaterial({ color: 0x4cc9f0, transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending }));
-  group.add(atmosphere);
-  const cityMarker = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 8), new THREE.MeshBasicMaterial({ color: 0xffd166 }));
-  cityMarker.position.set(3.5, 9.8, 5.7);
-  group.add(cityMarker);
+  const group = createRealisticEarth(12, true);
+  group.name = "photorealisticProceduralEarth";
   return group;
 }
 
 function createEarthMoonLayer() {
   const group = new THREE.Group();
-  const earth = new THREE.Mesh(new THREE.SphereGeometry(4.2, 96, 48), new THREE.MeshStandardMaterial({ color: 0x1d66d1, roughness: 0.7, emissive: 0x031734, emissiveIntensity: 0.12 }));
-  earth.position.x = -46;
-  const atmosphere = new THREE.Mesh(new THREE.SphereGeometry(4.55, 96, 48), new THREE.MeshBasicMaterial({ color: 0x4cc9f0, transparent: true, opacity: 0.18, blending: THREE.AdditiveBlending }));
-  atmosphere.position.copy(earth.position);
-  const moon = new THREE.Mesh(new THREE.SphereGeometry(1.15, 64, 32), new THREE.MeshStandardMaterial({ color: 0xb8c0ca, roughness: 1 }));
+  const earthSystem = createRealisticEarth(4.2, false);
+  earthSystem.position.x = 0;
+  group.add(earthSystem);
+
+  const orbit = makeCircle(46, 0x4cc9f0, 0.22, 360);
+  group.add(orbit);
+
+  const moonOrbit = new THREE.Group();
+  const moon = new THREE.Mesh(
+    new THREE.SphereGeometry(1.15, 64, 32),
+    new THREE.MeshStandardMaterial({ color: 0xb8c0ca, roughness: 1, metalness: 0.01 })
+  );
   moon.position.x = 46;
-  group.add(earth, atmosphere, moon, makeLine([new THREE.Vector3(-46, 0, 0), new THREE.Vector3(46, 0, 0)], 0x4cc9f0, 0.24));
+  const moonGlow = new THREE.Mesh(new THREE.SphereGeometry(1.22, 32, 16), new THREE.MeshBasicMaterial({ color: 0xdde7ff, transparent: true, opacity: 0.08, blending: THREE.AdditiveBlending }));
+  moonGlow.position.copy(moon.position);
+  moonOrbit.add(moon, moonGlow);
+  group.add(moonOrbit);
+
+  const distanceLine = makeLine([new THREE.Vector3(0, 0, 0), new THREE.Vector3(46, 0, 0)], 0x4cc9f0, 0.18);
+  group.add(distanceLine);
+  group.userData.earthSystem = earthSystem;
+  group.userData.moonOrbit = moonOrbit;
+  group.userData.distanceLine = distanceLine;
   return group;
 }
 
@@ -771,6 +953,7 @@ function setMode(mode) {
   ui.modeButtons.forEach(button => button.classList.toggle("active", button.dataset.mode === mode));
   ui.panels.forEach(panel => panel.classList.toggle("hidden", panel.dataset.panel !== mode));
   controls.autoRotate = mode !== "blackhole";
+  controls.enableZoom = mode !== "scale";
 
   if (mode === "scale") {
     camera.position.set(0, 1.65, 4.2);
@@ -817,8 +1000,18 @@ function interpolateScaleFrame(zoom) {
   };
 }
 
+function spinEarthSystem(layer, surfaceSpeed, cloudSpeed) {
+  if (!layer?.userData) return;
+  const earth = layer.userData.earth || layer.userData.earthSystem?.userData.earth;
+  const clouds = layer.userData.clouds || layer.userData.earthSystem?.userData.clouds;
+  if (earth) earth.rotation.y += surfaceSpeed;
+  if (clouds) clouds.rotation.y += cloudSpeed;
+}
+
 function animateScaleLayers(delta, zoom) {
-  if (scaleObjects.layers[3]) scaleObjects.layers[3].rotation.y += delta * 0.12;
+  spinEarthSystem(scaleObjects.layers[3], delta * 0.12, delta * 0.17);
+  spinEarthSystem(scaleObjects.layers[4], delta * 0.08, delta * 0.12);
+  if (scaleObjects.layers[4]?.userData?.moonOrbit) scaleObjects.layers[4].userData.moonOrbit.rotation.y += delta * 0.22;
   if (scaleObjects.layers[5]) scaleObjects.layers[5].rotation.y += delta * 0.035;
   if (scaleObjects.layers[8]) scaleObjects.layers[8].rotation.y += delta * 0.012;
   if (scaleObjects.layers[9]) scaleObjects.layers[9].rotation.y += delta * 0.024;
@@ -1004,14 +1197,57 @@ function updateOrbiters(delta, horizonRadius, massSolar) {
   });
 }
 
+const activePointers = new Map();
+let lastPinchDistance = null;
+
+function setScaleTargetZoom(value) {
+  state.cameraRig.targetZoom = THREE.MathUtils.clamp(value, 0, scaleLevels.length - 1);
+  ui.scaleZoom.value = state.cameraRig.targetZoom;
+}
+
+function getPinchDistance() {
+  const pointers = [...activePointers.values()];
+  if (pointers.length < 2) return null;
+  const [first, second] = pointers;
+  return Math.hypot(first.x - second.x, first.y - second.y);
+}
+
+function handlePointerDown(event) {
+  activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+  if (activePointers.size === 2) lastPinchDistance = getPinchDistance();
+}
+
+function handlePointerMove(event) {
+  if (!activePointers.has(event.pointerId)) return;
+  activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+  if (state.mode !== "scale" || activePointers.size < 2) return;
+  const nextDistance = getPinchDistance();
+  if (!nextDistance || !lastPinchDistance) {
+    lastPinchDistance = nextDistance;
+    return;
+  }
+  const pinchDelta = lastPinchDistance - nextDistance;
+  setScaleTargetZoom(state.cameraRig.targetZoom + pinchDelta * 0.012);
+  lastPinchDistance = nextDistance;
+}
+
+function handlePointerEnd(event) {
+  activePointers.delete(event.pointerId);
+  if (activePointers.size < 2) lastPinchDistance = null;
+}
+
 function connectEvents() {
   ui.modeButtons.forEach(button => button.addEventListener("click", () => setMode(button.dataset.mode)));
   ui.scaleZoom.addEventListener("input", () => { state.cameraRig.targetZoom = Number(ui.scaleZoom.value); });
   window.addEventListener("wheel", event => {
     if (state.mode !== "scale") return;
-    state.cameraRig.targetZoom = THREE.MathUtils.clamp(state.cameraRig.targetZoom + event.deltaY * 0.0025, 0, 14);
-    ui.scaleZoom.value = state.cameraRig.targetZoom;
+    setScaleTargetZoom(state.cameraRig.targetZoom + event.deltaY * 0.0025);
   }, { passive: true });
+  renderer.domElement.addEventListener("pointerdown", handlePointerDown);
+  renderer.domElement.addEventListener("pointermove", handlePointerMove);
+  renderer.domElement.addEventListener("pointerup", handlePointerEnd);
+  renderer.domElement.addEventListener("pointercancel", handlePointerEnd);
+  renderer.domElement.addEventListener("lostpointercapture", handlePointerEnd);
   ui.stellarMass.addEventListener("input", () => {
     state.stellar.presetIndex = Number(ui.stellarMass.value);
     state.stellar.running = false;
