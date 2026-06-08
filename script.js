@@ -88,7 +88,7 @@ const stellarPresets = [
 const state = {
   mode: "scale",
   clock: new THREE.Clock(),
-  cameraRig: { zoom: 3, targetZoom: 3, position: new THREE.Vector3(), velocity: new THREE.Vector3() },
+  cameraRig: { zoom: 0, targetZoom: 0, position: new THREE.Vector3(), velocity: new THREE.Vector3() },
   stellar: { presetIndex: 1, running: false, phase: 0, stage: "Main Sequence" },
   blackHole: { mass: 12, distance: 92, orbiters: [] }
 };
@@ -121,30 +121,93 @@ function formatScientific(value, unit = "") {
   return `${formatted}${unit}`;
 }
 
-function buildInstancedStarField() {
-  const geometry = new THREE.SphereGeometry(0.42, 6, 4);
-  const material = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.86 });
-  const stars = new THREE.InstancedMesh(geometry, material, 50000);
+const scaleObjects = { layers: [], marker: null };
+
+function rememberBaseOpacity(material) {
+  if (!material) return;
+  material.transparent = true;
+  material.userData.baseOpacity = material.opacity ?? 1;
+}
+
+function prepareLayerObject(object) {
+  object.traverse(child => {
+    if (!child.material) return;
+    if (Array.isArray(child.material)) child.material.forEach(rememberBaseOpacity);
+    else rememberBaseOpacity(child.material);
+  });
+  return object;
+}
+
+function setLayerOpacity(layer, opacity) {
+  layer.visible = opacity > 0.015;
+  layer.traverse(child => {
+    if (!child.material) return;
+    const materials = Array.isArray(child.material) ? child.material : [child.material];
+    materials.forEach(material => {
+      if (material.userData.baseOpacity === undefined) rememberBaseOpacity(material);
+      material.opacity = material.userData.baseOpacity * opacity;
+      material.depthWrite = opacity > 0.92 && material.userData.baseOpacity >= 0.95;
+    });
+  });
+}
+
+function createPoints(count, radius, colorA, colorB, options = {}) {
+  const geometry = new THREE.BufferGeometry();
+  const positions = new Float32Array(count * 3);
+  const colors = new Float32Array(count * 3);
+  const a = new THREE.Color(colorA);
+  const b = new THREE.Color(colorB);
+  const c = new THREE.Color();
+
+  for (let i = 0; i < count; i += 1) {
+    const direction = new THREE.Vector3(randomRange(-1, 1), randomRange(-1, 1), randomRange(-1, 1)).normalize();
+    const distance = options.shell ? randomRange(radius * 0.72, radius) : Math.pow(Math.random(), options.power ?? 0.5) * radius;
+    const flatten = options.flatten ?? 1;
+    positions[i * 3] = direction.x * distance;
+    positions[i * 3 + 1] = direction.y * distance * flatten;
+    positions[i * 3 + 2] = direction.z * distance;
+    c.copy(a).lerp(b, Math.random()).multiplyScalar(randomRange(0.6, 1.45));
+    colors[i * 3] = c.r;
+    colors[i * 3 + 1] = c.g;
+    colors[i * 3 + 2] = c.b;
+  }
+
+  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+  return new THREE.Points(geometry, new THREE.PointsMaterial({
+    size: options.size ?? 0.35,
+    vertexColors: true,
+    transparent: true,
+    opacity: options.opacity ?? 0.75,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending
+  }));
+}
+
+function createInstancedStarField(count = 50000, radius = 620) {
+  const geometry = new THREE.SphereGeometry(0.11, 6, 4);
+  const material = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.9 });
+  const stars = new THREE.InstancedMesh(geometry, material, count);
   stars.instanceMatrix.setUsage(THREE.StaticDrawUsage);
   const matrix = new THREE.Matrix4();
   const color = new THREE.Color();
   const types = Object.keys(spectralColors);
 
-  for (let i = 0; i < stars.count; i += 1) {
-    const radius = Math.pow(Math.random(), 0.38) * 85000 + 120;
+  for (let i = 0; i < count; i += 1) {
+    const distance = Math.pow(Math.random(), 0.25) * radius + 45;
     const theta = Math.random() * Math.PI * 2;
     const phi = Math.acos(randomRange(-1, 1));
-    const size = randomRange(0.18, 1.55) * (Math.random() > 0.985 ? 3.2 : 1);
+    const size = randomRange(0.45, 2.4) * (Math.random() > 0.992 ? 4 : 1);
     matrix.compose(
-      new THREE.Vector3(radius * Math.sin(phi) * Math.cos(theta), radius * Math.cos(phi), radius * Math.sin(phi) * Math.sin(theta)),
+      new THREE.Vector3(distance * Math.sin(phi) * Math.cos(theta), distance * Math.cos(phi), distance * Math.sin(phi) * Math.sin(theta)),
       new THREE.Quaternion(),
       new THREE.Vector3(size, size, size)
     );
     stars.setMatrixAt(i, matrix);
-    color.copy(spectralColors[types[Math.floor(Math.random() * types.length)]]).multiplyScalar(randomRange(0.55, 1.75));
+    color.copy(spectralColors[types[Math.floor(Math.random() * types.length)]]).multiplyScalar(randomRange(0.55, 1.85));
     stars.setColorAt(i, color);
   }
-  groups.scale.add(stars);
+  stars.userData.description = "50,000 instanced stars with varied spectral-class colors, luminosity, and distance.";
   return stars;
 }
 
@@ -176,63 +239,359 @@ function buildGalaxyParticles(count, radius, colorA, colorB, arms = 4) {
   return new THREE.Points(geometry, material);
 }
 
+function makeLine(points, color = 0x4cc9f0, opacity = 0.42) {
+  return new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), new THREE.LineBasicMaterial({ color, transparent: true, opacity, blending: THREE.AdditiveBlending }));
+}
+
+function makeCircle(radius, color = 0x4cc9f0, opacity = 0.2, segments = 256) {
+  const points = Array.from({ length: segments }, (_, index) => {
+    const angle = index / segments * Math.PI * 2;
+    return new THREE.Vector3(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
+  });
+  return new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(points), new THREE.LineBasicMaterial({ color, transparent: true, opacity }));
+}
+
+function makeTextSprite(lines, color = "#f8f9fa") {
+  const canvas2d = document.createElement("canvas");
+  canvas2d.width = 1024;
+  canvas2d.height = 512;
+  const context = canvas2d.getContext("2d");
+  context.clearRect(0, 0, canvas2d.width, canvas2d.height);
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.shadowColor = "rgba(76,201,240,0.8)";
+  context.shadowBlur = 24;
+  context.fillStyle = color;
+  context.font = "700 82px system-ui, sans-serif";
+  context.fillText(lines[0], 512, 190);
+  context.font = "500 46px system-ui, sans-serif";
+  context.fillText(lines[1], 512, 292);
+  const texture = new THREE.CanvasTexture(canvas2d);
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, blending: THREE.AdditiveBlending }));
+  sprite.scale.set(74, 37, 1);
+  return sprite;
+}
+
+function createHumanLayer() {
+  const group = new THREE.Group();
+  const silhouette = new THREE.MeshStandardMaterial({ color: 0x07090f, roughness: 0.62, metalness: 0.1 });
+  const glow = new THREE.MeshBasicMaterial({ color: 0x4cc9f0, transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending });
+  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.46, 1.35, 8, 18), silhouette);
+  torso.position.y = 1.55;
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.32, 32, 16), silhouette);
+  head.position.y = 2.55;
+  const aura = new THREE.Mesh(new THREE.CapsuleGeometry(0.62, 1.55, 8, 18), glow);
+  aura.position.y = 1.55;
+  group.add(torso, head, aura);
+  [[-0.42, 1.58, 0.22], [0.42, 1.58, -0.22], [-0.19, 0.62, 0.08], [0.19, 0.62, -0.08]].forEach(([x, y, z], index) => {
+    const limb = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.09, index < 2 ? 1.22 : 1.08, 16), silhouette);
+    limb.position.set(x, y, 0);
+    limb.rotation.z = z;
+    group.add(limb);
+  });
+  const floor = new THREE.Mesh(new THREE.CircleGeometry(5.5, 96), new THREE.MeshStandardMaterial({ color: 0x080d16, roughness: 0.85, metalness: 0.35 }));
+  floor.rotation.x = -Math.PI / 2;
+  group.add(floor);
+  for (let i = -4; i <= 4; i += 1) {
+    group.add(makeLine([new THREE.Vector3(i, 0.012, -5), new THREE.Vector3(i, 0.012, 5)], 0x4cc9f0, 0.08));
+    group.add(makeLine([new THREE.Vector3(-5, 0.012, i), new THREE.Vector3(5, 0.012, i)], 0x4cc9f0, 0.08));
+  }
+  return group;
+}
+
+function createBuildingLayer() {
+  const group = new THREE.Group();
+  const tower = new THREE.Mesh(new THREE.BoxGeometry(7, 42, 7), new THREE.MeshStandardMaterial({ color: 0x101826, metalness: 0.55, roughness: 0.28 }));
+  tower.position.y = 21;
+  group.add(tower);
+  const windowGeometry = new THREE.BoxGeometry(0.28, 0.22, 0.035);
+  const windowMaterial = new THREE.MeshBasicMaterial({ color: 0xffd166, transparent: true, opacity: 0.78 });
+  const windows = new THREE.InstancedMesh(windowGeometry, windowMaterial, 392);
+  const matrix = new THREE.Matrix4();
+  let cursor = 0;
+  for (let side = 0; side < 4; side += 1) {
+    for (let floor = 0; floor < 28; floor += 1) {
+      for (let col = -3; col <= 3; col += 1) {
+        if (Math.random() < 0.42) continue;
+        const y = 2 + floor * 1.36;
+        const x = side < 2 ? col * 0.78 : (side === 2 ? 3.52 : -3.52);
+        const z = side < 2 ? (side === 0 ? 3.52 : -3.52) : col * 0.78;
+        const rotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, side < 2 ? 0 : Math.PI / 2, 0));
+        matrix.compose(new THREE.Vector3(x, y, z), rotation, new THREE.Vector3(1, 1, 1));
+        windows.setMatrixAt(cursor, matrix);
+        cursor += 1;
+      }
+    }
+  }
+  windows.count = cursor;
+  group.add(windows);
+  const tinyHuman = createHumanLayer();
+  tinyHuman.scale.setScalar(0.12);
+  tinyHuman.position.set(-7, 0, 4);
+  group.add(tinyHuman);
+  return group;
+}
+
+function createCityLayer() {
+  const group = new THREE.Group();
+  const roadMaterial = new THREE.LineBasicMaterial({ color: 0xdde7ff, transparent: true, opacity: 0.2 });
+  for (let i = -8; i <= 8; i += 1) {
+    group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(i * 6, 0.05, -54), new THREE.Vector3(i * 6, 0.05, 54)]), roadMaterial));
+    group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-54, 0.05, i * 6), new THREE.Vector3(54, 0.05, i * 6)]), roadMaterial));
+  }
+  const buildingGeometry = new THREE.BoxGeometry(1, 1, 1);
+  const buildingMaterial = new THREE.MeshStandardMaterial({ color: 0x172338, roughness: 0.5, metalness: 0.28, emissive: 0x0d1b2a, emissiveIntensity: 0.3 });
+  const buildings = new THREE.InstancedMesh(buildingGeometry, buildingMaterial, 420);
+  const matrix = new THREE.Matrix4();
+  for (let i = 0; i < buildings.count; i += 1) {
+    const x = randomRange(-48, 48);
+    const z = randomRange(-48, 48);
+    const height = randomRange(1.5, 18) * (Math.random() > 0.92 ? 1.7 : 1);
+    matrix.compose(new THREE.Vector3(x, height / 2, z), new THREE.Quaternion(), new THREE.Vector3(randomRange(1, 3.5), height, randomRange(1, 3.5)));
+    buildings.setMatrixAt(i, matrix);
+  }
+  group.add(buildings);
+  const park = new THREE.Mesh(new THREE.PlaneGeometry(24, 14), new THREE.MeshStandardMaterial({ color: 0x12351f, roughness: 0.9 }));
+  park.rotation.x = -Math.PI / 2;
+  park.position.set(-18, 0.03, 20);
+  group.add(park);
+  const riverPoints = Array.from({ length: 80 }, (_, i) => new THREE.Vector3(-56 + i * 1.4, 0.08, Math.sin(i * 0.18) * 9 - 12));
+  group.add(makeLine(riverPoints, 0x4cc9f0, 0.55));
+  return group;
+}
+
+function createEarthLayer() {
+  const group = new THREE.Group();
+  const earth = new THREE.Mesh(new THREE.SphereGeometry(12, 128, 64), new THREE.MeshStandardMaterial({ color: 0x1d66d1, roughness: 0.72, metalness: 0.02, emissive: 0x031734, emissiveIntensity: 0.08 }));
+  group.add(earth);
+  const land = createPoints(1600, 12.08, 0x1e8f53, 0xb7a46a, { shell: true, size: 0.08, opacity: 0.85 });
+  group.add(land);
+  const clouds = createPoints(2300, 12.7, 0xffffff, 0xdde7ff, { shell: true, size: 0.11, opacity: 0.42 });
+  group.add(clouds);
+  const atmosphere = new THREE.Mesh(new THREE.SphereGeometry(12.9, 128, 64), new THREE.MeshBasicMaterial({ color: 0x4cc9f0, transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending }));
+  group.add(atmosphere);
+  const cityMarker = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 8), new THREE.MeshBasicMaterial({ color: 0xffd166 }));
+  cityMarker.position.set(3.5, 9.8, 5.7);
+  group.add(cityMarker);
+  return group;
+}
+
+function createEarthMoonLayer() {
+  const group = new THREE.Group();
+  const earth = new THREE.Mesh(new THREE.SphereGeometry(4.2, 96, 48), new THREE.MeshStandardMaterial({ color: 0x1d66d1, roughness: 0.7, emissive: 0x031734, emissiveIntensity: 0.12 }));
+  earth.position.x = -46;
+  const atmosphere = new THREE.Mesh(new THREE.SphereGeometry(4.55, 96, 48), new THREE.MeshBasicMaterial({ color: 0x4cc9f0, transparent: true, opacity: 0.18, blending: THREE.AdditiveBlending }));
+  atmosphere.position.copy(earth.position);
+  const moon = new THREE.Mesh(new THREE.SphereGeometry(1.15, 64, 32), new THREE.MeshStandardMaterial({ color: 0xb8c0ca, roughness: 1 }));
+  moon.position.x = 46;
+  group.add(earth, atmosphere, moon, makeLine([new THREE.Vector3(-46, 0, 0), new THREE.Vector3(46, 0, 0)], 0x4cc9f0, 0.24));
+  return group;
+}
+
+function createSolarSystemLayer() {
+  const group = new THREE.Group();
+  const sun = new THREE.Mesh(new THREE.SphereGeometry(5.4, 96, 48), new THREE.MeshBasicMaterial({ color: 0xffd166 }));
+  group.add(sun);
+  const planetColors = [0x9e8f73, 0xcaa56a, 0x4cc9f0, 0xd95f45, 0xd2a85f, 0xd8c79f, 0x80c7ff, 0x3e71d8];
+  planetColors.forEach((color, index) => {
+    const radius = 10 + index * 6.5 + (index > 3 ? index * 3 : 0);
+    group.add(makeCircle(radius, 0x4cc9f0, 0.14));
+    const planet = new THREE.Mesh(new THREE.SphereGeometry(index < 4 ? 0.48 : 0.9, 24, 12), new THREE.MeshBasicMaterial({ color }));
+    const angle = index * 0.72;
+    planet.position.set(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
+    group.add(planet);
+  });
+  const asteroidBelt = createPoints(3500, 42, 0xa99a86, 0xffffff, { flatten: 0.03, size: 0.06, opacity: 0.58 });
+  group.add(asteroidBelt);
+  const kuiper = createPoints(4200, 78, 0x9bdfff, 0xf8f9fa, { shell: true, flatten: 0.08, size: 0.09, opacity: 0.32 });
+  group.add(kuiper);
+  return group;
+}
+
+function createOortLayer() {
+  const group = new THREE.Group();
+  const sunMarker = new THREE.Mesh(new THREE.SphereGeometry(0.7, 32, 16), new THREE.MeshBasicMaterial({ color: 0xffd166 }));
+  group.add(sunMarker);
+  group.add(createPoints(18000, 95, 0x4cc9f0, 0xf8f9fa, { shell: true, size: 0.12, opacity: 0.5 }));
+  const shell = new THREE.Mesh(new THREE.SphereGeometry(96, 64, 32), new THREE.MeshBasicMaterial({ color: 0x4cc9f0, wireframe: true, transparent: true, opacity: 0.035 }));
+  group.add(shell);
+  return group;
+}
+
+function createNearestStarsLayer() {
+  const group = new THREE.Group();
+  group.add(createInstancedStarField(50000, 640));
+  const namedStars = [
+    ["Solar System", 0xffd166, 0, 0, 0, 1.2],
+    ["Alpha Centauri", 0xffd166, 95, 22, -54, 2.8],
+    ["Barnard's Star", 0xff6b5d, -132, -18, 66, 1.8],
+    ["Sirius", 0xd9f7ff, 180, 46, 108, 3.6],
+    ["Wolf 359", 0xff6b5d, -80, 58, -168, 1.4]
+  ];
+  namedStars.forEach(([, color, x, y, z, size], index) => {
+    const star = new THREE.Mesh(new THREE.SphereGeometry(size, 32, 16), new THREE.MeshBasicMaterial({ color }));
+    star.position.set(x, y, z);
+    group.add(star);
+    if (index > 0) group.add(makeLine([new THREE.Vector3(0, 0, 0), star.position], 0x4cc9f0, 0.1));
+  });
+  return group;
+}
+
+function createOrionArmLayer() {
+  const group = new THREE.Group();
+  const arm = buildGalaxyParticles(22000, 240, 0x9bdfff, 0xf8f9fa, 2);
+  arm.scale.set(1.8, 0.16, 0.42);
+  group.add(arm);
+  for (let i = 0; i < 6; i += 1) {
+    const nebula = createPoints(1800, randomRange(12, 26), 0x6a4c93, 0x4cc9f0, { size: 0.35, opacity: 0.33, flatten: 0.55 });
+    nebula.position.set(randomRange(-180, 180), randomRange(-14, 14), randomRange(-55, 55));
+    group.add(nebula);
+  }
+  const solarMarker = new THREE.Mesh(new THREE.SphereGeometry(1.2, 24, 12), new THREE.MeshBasicMaterial({ color: 0xffd166 }));
+  solarMarker.position.set(78, 0, -16);
+  group.add(solarMarker);
+  return group;
+}
+
+function createMilkyWayLayer() {
+  const group = new THREE.Group();
+  const galaxy = buildGalaxyParticles(42000, 210, 0xf8f9fa, 0x6a4c93, 5);
+  galaxy.rotation.x = 1.15;
+  group.add(galaxy);
+  const bulge = new THREE.Mesh(new THREE.SphereGeometry(18, 64, 32), new THREE.MeshBasicMaterial({ color: 0xffd166, transparent: true, opacity: 0.48, blending: THREE.AdditiveBlending }));
+  group.add(bulge);
+  for (let i = 0; i < 5; i += 1) {
+    const dust = buildGalaxyParticles(2500, 170, 0x05070b, 0x1b1029, 5);
+    dust.material.size = 1.4;
+    dust.material.opacity = 0.32;
+    dust.rotation.x = 1.15;
+    dust.rotation.z = i * 0.28;
+    group.add(dust);
+  }
+  return group;
+}
+
+function createLocalGroupLayer() {
+  const group = new THREE.Group();
+  const galaxies = [
+    [-50, 0, 0, 46, 0xf8f9fa, 0x6a4c93, 5],
+    [70, 12, -28, 58, 0xdde7ff, 0x4cc9f0, 4],
+    [18, -20, 62, 25, 0xffd166, 0xf8f9fa, 3]
+  ];
+  galaxies.forEach(([x, y, z, radius, a, b, arms]) => {
+    const galaxy = buildGalaxyParticles(9000, radius, a, b, arms);
+    galaxy.rotation.x = randomRange(0.7, 1.4);
+    galaxy.rotation.z = randomRange(0, Math.PI);
+    galaxy.position.set(x, y, z);
+    group.add(galaxy);
+  });
+  group.add(createPoints(80, 150, 0xf8f9fa, 0x9bdfff, { size: 0.9, opacity: 0.35 }));
+  return group;
+}
+
+function createVirgoClusterLayer() {
+  const group = new THREE.Group();
+  const galaxyGeometry = new THREE.SphereGeometry(0.8, 10, 6);
+  const material = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.9 });
+  const mesh = new THREE.InstancedMesh(galaxyGeometry, material, 620);
+  const matrix = new THREE.Matrix4();
+  const color = new THREE.Color();
+  for (let i = 0; i < mesh.count; i += 1) {
+    const r = Math.pow(Math.random(), 0.48) * 170;
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.acos(randomRange(-1, 1));
+    const size = randomRange(0.55, 3.4);
+    matrix.compose(new THREE.Vector3(r * Math.sin(phi) * Math.cos(theta), r * Math.cos(phi) * 0.65, r * Math.sin(phi) * Math.sin(theta)), new THREE.Quaternion(), new THREE.Vector3(size, size * 0.45, size));
+    mesh.setMatrixAt(i, matrix);
+    color.set(Math.random() > 0.7 ? 0xffd166 : 0xdde7ff).multiplyScalar(randomRange(0.6, 1.4));
+    mesh.setColorAt(i, color);
+  }
+  group.add(mesh);
+  return group;
+}
+
+function createNetworkLayer(nodeCount, radius, color = 0x4cc9f0, connections = 110) {
+  const group = new THREE.Group();
+  const nodes = [];
+  const nodeGeometry = new THREE.SphereGeometry(1, 12, 8);
+  const nodeMaterial = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending });
+  const nodeMesh = new THREE.InstancedMesh(nodeGeometry, nodeMaterial, nodeCount);
+  const matrix = new THREE.Matrix4();
+  for (let i = 0; i < nodeCount; i += 1) {
+    const p = new THREE.Vector3(randomRange(-radius, radius), randomRange(-radius * 0.42, radius * 0.42), randomRange(-radius, radius));
+    nodes.push(p);
+    const size = randomRange(0.8, 3.6) * (Math.random() > 0.88 ? 2.2 : 1);
+    matrix.compose(p, new THREE.Quaternion(), new THREE.Vector3(size, size, size));
+    nodeMesh.setMatrixAt(i, matrix);
+  }
+  group.add(nodeMesh);
+  for (let i = 0; i < connections; i += 1) {
+    const a = nodes[Math.floor(Math.random() * nodes.length)];
+    const b = nodes[Math.floor(Math.random() * nodes.length)];
+    if (a.distanceTo(b) < radius * 0.72) group.add(makeLine([a, b], color, randomRange(0.08, 0.32)));
+  }
+  return group;
+}
+
+function createLaniakeaLayer() {
+  const group = createNetworkLayer(170, 180, 0xffd166, 150);
+  group.add(createPoints(2600, 210, 0x6a4c93, 0x4cc9f0, { size: 0.28, opacity: 0.18 }));
+  return group;
+}
+
+function createCosmicWebLayer() {
+  const group = createNetworkLayer(360, 230, 0x4cc9f0, 430);
+  for (let i = 0; i < 8; i += 1) {
+    const voidShell = new THREE.Mesh(new THREE.SphereGeometry(randomRange(18, 42), 32, 16), new THREE.MeshBasicMaterial({ color: 0x05070b, transparent: true, opacity: 0.18, wireframe: true }));
+    voidShell.position.set(randomRange(-180, 180), randomRange(-70, 70), randomRange(-180, 180));
+    group.add(voidShell);
+  }
+  return group;
+}
+
+function createObservableUniverseLayer() {
+  const group = new THREE.Group();
+  const web = createNetworkLayer(480, 145, 0x9bdfff, 520);
+  web.scale.set(0.72, 0.72, 0.72);
+  group.add(web);
+  const horizon = new THREE.Mesh(new THREE.SphereGeometry(122, 96, 48), new THREE.MeshBasicMaterial({ color: 0x4cc9f0, transparent: true, opacity: 0.045, wireframe: true, blending: THREE.AdditiveBlending }));
+  group.add(horizon);
+  const label = makeTextSprite(["Observable Universe", "93 Billion Light Years"]);
+  label.position.set(0, 92, 0);
+  group.add(label);
+  return group;
+}
+
 function buildCosmicScaleScene() {
-  buildInstancedStarField();
+  const builders = [
+    createHumanLayer,
+    createBuildingLayer,
+    createCityLayer,
+    createEarthLayer,
+    createEarthMoonLayer,
+    createSolarSystemLayer,
+    createOortLayer,
+    createNearestStarsLayer,
+    createOrionArmLayer,
+    createMilkyWayLayer,
+    createLocalGroupLayer,
+    createVirgoClusterLayer,
+    createLaniakeaLayer,
+    createCosmicWebLayer,
+    createObservableUniverseLayer
+  ];
 
-  const earth = new THREE.Mesh(
-    new THREE.SphereGeometry(4.4, 96, 48),
-    new THREE.MeshStandardMaterial({ color: 0x1f75ff, roughness: 0.82, metalness: 0.02, emissive: 0x061b4a, emissiveIntensity: 0.18 })
-  );
-  earth.name = "Earth scale anchor";
-  groups.scale.add(earth);
+  scaleObjects.layers = builders.map((builder, index) => {
+    const layer = prepareLayerObject(builder());
+    layer.name = `Scale layer ${index + 1}: ${scaleLevels[index].name}`;
+    setLayerOpacity(layer, index === state.cameraRig.zoom ? 1 : 0);
+    groups.scale.add(layer);
+    return layer;
+  });
 
-  const atmosphere = new THREE.Mesh(
-    new THREE.SphereGeometry(4.55, 96, 48),
-    new THREE.MeshBasicMaterial({ color: 0x4cc9f0, transparent: true, opacity: 0.15, blending: THREE.AdditiveBlending })
-  );
-  groups.scale.add(atmosphere);
-
-  const moon = new THREE.Mesh(new THREE.SphereGeometry(1.2, 48, 24), new THREE.MeshStandardMaterial({ color: 0xb8c0ca, roughness: 1 }));
-  moon.position.set(18, 0.8, 0);
-  groups.scale.add(moon);
-
-  const sun = new THREE.Mesh(
-    new THREE.SphereGeometry(8, 96, 48),
-    new THREE.MeshBasicMaterial({ color: 0xffd166 })
-  );
-  sun.position.set(-130, 0, -40);
-  sun.userData.pulse = true;
-  groups.scale.add(sun);
-
-  for (let i = 0; i < 7; i += 1) {
-    const orbit = new THREE.LineLoop(
-      new THREE.BufferGeometry().setFromPoints(Array.from({ length: 220 }, (_, j) => {
-        const a = j / 220 * Math.PI * 2;
-        const r = 28 + i * 21;
-        return new THREE.Vector3(Math.cos(a) * r - 130, 0, Math.sin(a) * r - 40);
-      })),
-      new THREE.LineBasicMaterial({ color: 0x4cc9f0, transparent: true, opacity: 0.16 })
-    );
-    groups.scale.add(orbit);
-  }
-
-  const milkyWay = buildGalaxyParticles(26000, 2200, 0xf8f9fa, 0x6a4c93, 5);
-  milkyWay.position.set(0, -120, -6200);
-  milkyWay.rotation.x = 1.18;
-  groups.scale.add(milkyWay);
-
-  const cosmicWeb = new THREE.Group();
-  const filamentMaterial = new THREE.LineBasicMaterial({ color: 0x4cc9f0, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending });
-  for (let i = 0; i < 180; i += 1) {
-    const start = new THREE.Vector3(randomRange(-45000, 45000), randomRange(-28000, 28000), randomRange(-45000, 45000));
-    const end = start.clone().add(new THREE.Vector3(randomRange(-6000, 6000), randomRange(-3500, 3500), randomRange(-6000, 6000)));
-    cosmicWeb.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([start, end]), filamentMaterial));
-  }
-  groups.scale.add(cosmicWeb);
-
-  const light = new THREE.DirectionalLight(0xffffff, 2.5);
-  light.position.set(-10, 8, 12);
-  groups.scale.add(light, new THREE.AmbientLight(0x9bdfff, 0.35));
+  const light = new THREE.DirectionalLight(0xffffff, 2.8);
+  light.position.set(-20, 36, 24);
+  groups.scale.add(light, new THREE.AmbientLight(0x9bdfff, 0.42));
 }
 
 function createStarMaterial() {
@@ -414,8 +773,8 @@ function setMode(mode) {
   controls.autoRotate = mode !== "blackhole";
 
   if (mode === "scale") {
-    camera.position.set(0, 8, 34);
-    controls.target.set(0, 0, 0);
+    camera.position.set(0, 1.65, 4.2);
+    controls.target.set(0, 1.35, 0);
     ui.telemetryMode.textContent = "Cosmic Scale Explorer";
   } else if (mode === "stellar") {
     camera.position.set(0, 10, 38);
@@ -429,27 +788,76 @@ function setMode(mode) {
   controls.update();
 }
 
+const scaleCameraFrames = [
+  { position: new THREE.Vector3(0, 1.65, 4.2), target: new THREE.Vector3(0, 1.35, 0), fov: 50 },
+  { position: new THREE.Vector3(17, 24, 46), target: new THREE.Vector3(0, 21, 0), fov: 54 },
+  { position: new THREE.Vector3(0, 96, 92), target: new THREE.Vector3(0, 0, 0), fov: 58 },
+  { position: new THREE.Vector3(0, 8, 38), target: new THREE.Vector3(0, 0, 0), fov: 48 },
+  { position: new THREE.Vector3(0, 26, 124), target: new THREE.Vector3(0, 0, 0), fov: 42 },
+  { position: new THREE.Vector3(0, 82, 168), target: new THREE.Vector3(0, 0, 0), fov: 54 },
+  { position: new THREE.Vector3(0, 30, 218), target: new THREE.Vector3(0, 0, 0), fov: 60 },
+  { position: new THREE.Vector3(0, 155, 420), target: new THREE.Vector3(0, 4, 0), fov: 58 },
+  { position: new THREE.Vector3(0, 190, 380), target: new THREE.Vector3(0, 0, 0), fov: 56 },
+  { position: new THREE.Vector3(0, 280, 430), target: new THREE.Vector3(0, 0, 0), fov: 52 },
+  { position: new THREE.Vector3(0, 150, 250), target: new THREE.Vector3(0, 0, 0), fov: 62 },
+  { position: new THREE.Vector3(0, 180, 310), target: new THREE.Vector3(0, 0, 0), fov: 64 },
+  { position: new THREE.Vector3(0, 190, 330), target: new THREE.Vector3(0, 0, 0), fov: 62 },
+  { position: new THREE.Vector3(0, 210, 360), target: new THREE.Vector3(0, 0, 0), fov: 65 },
+  { position: new THREE.Vector3(0, 180, 315), target: new THREE.Vector3(0, 20, 0), fov: 68 }
+];
+
+function interpolateScaleFrame(zoom) {
+  const lower = Math.floor(THREE.MathUtils.clamp(zoom, 0, scaleCameraFrames.length - 1));
+  const upper = Math.min(scaleCameraFrames.length - 1, lower + 1);
+  const mix = THREE.MathUtils.smoothstep(zoom - lower, 0, 1);
+  return {
+    position: scaleCameraFrames[lower].position.clone().lerp(scaleCameraFrames[upper].position, mix),
+    target: scaleCameraFrames[lower].target.clone().lerp(scaleCameraFrames[upper].target, mix),
+    fov: THREE.MathUtils.lerp(scaleCameraFrames[lower].fov, scaleCameraFrames[upper].fov, mix)
+  };
+}
+
+function animateScaleLayers(delta, zoom) {
+  if (scaleObjects.layers[3]) scaleObjects.layers[3].rotation.y += delta * 0.12;
+  if (scaleObjects.layers[5]) scaleObjects.layers[5].rotation.y += delta * 0.035;
+  if (scaleObjects.layers[8]) scaleObjects.layers[8].rotation.y += delta * 0.012;
+  if (scaleObjects.layers[9]) scaleObjects.layers[9].rotation.y += delta * 0.024;
+  if (scaleObjects.layers[13]) scaleObjects.layers[13].rotation.y += delta * 0.01;
+  if (scaleObjects.layers[14]) scaleObjects.layers[14].rotation.y += delta * 0.006;
+
+  scaleObjects.layers.forEach((layer, index) => {
+    const distanceFromLevel = Math.abs(zoom - index);
+    const opacity = THREE.MathUtils.smoothstep(1.15 - distanceFromLevel, 0, 1);
+    setLayerOpacity(layer, opacity);
+    layer.scale.setScalar(1 + Math.max(0, distanceFromLevel - 0.15) * 0.025);
+  });
+}
+
 function updateScaleExplorer(delta) {
   state.cameraRig.targetZoom = Number(ui.scaleZoom.value);
-  state.cameraRig.zoom += (state.cameraRig.targetZoom - state.cameraRig.zoom) * Math.min(1, delta * 3.2);
+  const spring = (state.cameraRig.targetZoom - state.cameraRig.zoom) * 7.5;
+  state.cameraRig.velocity.x += spring * delta;
+  state.cameraRig.velocity.x *= Math.pow(0.0008, delta);
+  state.cameraRig.zoom = THREE.MathUtils.clamp(state.cameraRig.zoom + state.cameraRig.velocity.x * delta, 0, scaleLevels.length - 1);
+
   const exactIndex = THREE.MathUtils.clamp(Math.round(state.cameraRig.zoom), 0, scaleLevels.length - 1);
   const level = scaleLevels[exactIndex];
-  const distance = Math.pow(2.65, state.cameraRig.zoom) * 9;
-  const height = Math.pow(1.82, state.cameraRig.zoom) * 3;
+  const frame = interpolateScaleFrame(state.cameraRig.zoom);
 
-  camera.position.lerp(new THREE.Vector3(distance * 0.58, height, distance), 0.045);
-  controls.target.lerp(new THREE.Vector3(0, 0, state.cameraRig.zoom > 8 ? -2500 : 0), 0.035);
-  camera.near = Math.max(0.01, distance / 90000);
-  camera.far = Math.max(200000, distance * 28);
+  camera.position.lerp(frame.position, 0.08);
+  controls.target.lerp(frame.target, 0.08);
+  camera.fov = THREE.MathUtils.lerp(camera.fov, frame.fov, 0.06);
+  camera.near = 0.01;
+  camera.far = 250000;
   camera.updateProjectionMatrix();
+  animateScaleLayers(delta, state.cameraRig.zoom);
 
-  groups.scale.rotation.y += delta * 0.018;
   ui.scaleName.textContent = level.name;
   ui.scaleDistance.textContent = level.realDiameter;
   ui.scaleBrief.textContent = `${level.description} ${level.scientificFact}`;
   ui.telemetryPrimary.textContent = level.name;
-  ui.telemetryValue.textContent = `${level.realDiameter} diameter`;
-  ui.telemetryPhysics.textContent = `Zoom 10^${level.logSize} • ${level.type}`;
+  ui.telemetryValue.textContent = `${level.realDiameter} • ${level.realDistance}`;
+  ui.telemetryPhysics.textContent = `Layer ${exactIndex + 1}/15 • ${level.type} • logarithmic transition`;
 }
 
 function updateStarLifecycle(delta) {
