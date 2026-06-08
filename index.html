@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CosmoScope: An Interactive Universe Explorer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="star-field" aria-hidden="true"></div>
+  <header class="site-header">
+    <a class="logo" href="#home" aria-label="CosmoScope home">CosmoScope</a>
+    <nav class="nav-links" aria-label="Primary navigation">
+      <a href="#scale">Scale</a>
+      <a href="#stars">Stars</a>
+      <a href="#gravity">Gravity</a>
+      <a href="#science">Science</a>
+    </nav>
+  </header>
+
+  <main>
+    <section id="home" class="hero section-panel">
+      <div class="hero-glow" aria-hidden="true"></div>
+      <div class="hero-content">
+        <p class="eyebrow">Interactive STEM Project</p>
+        <h1>CosmoScope</h1>
+        <p class="subtitle">An Interactive Journey Through Scale, Stars, Gravity, and Black Holes.</p>
+        <p class="intro">The universe is easiest to understand when we explore three big ideas: the enormous scale of space, the life cycles of stars, and the gravity that shapes planets, galaxies, and black holes.</p>
+        <div class="feature-grid" aria-label="CosmoScope modules">
+          <a class="feature-card" href="#scale">
+            <span class="feature-icon scale-icon" aria-hidden="true"></span>
+            <h2>Scale of the Universe Explorer</h2>
+            <p>Zoom from human size to the observable universe and compare cosmic distances.</p>
+          </a>
+          <a class="feature-card" href="#stars">
+            <span class="feature-icon star-icon" aria-hidden="true"></span>
+            <h2>Stellar Evolution Simulator</h2>
+            <p>Choose a star's mass and reveal how its life, brightness, and fate change.</p>
+          </a>
+          <a class="feature-card" href="#gravity">
+            <span class="feature-icon black-hole-icon" aria-hidden="true"></span>
+            <h2>Gravity and Black Hole Lab</h2>
+            <p>Calculate weight on extreme objects and test a simplified black hole model.</p>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section id="scale" class="section-panel content-section">
+      <div class="section-heading">
+        <p class="eyebrow">Module 01</p>
+        <h2>Scale of the Universe Explorer</h2>
+        <p>Move the slider to zoom outward. Each step shows a scale level, its approximate size, a scientific explanation, and a comparison that makes the size easier to imagine.</p>
+      </div>
+
+      <div class="interactive-shell scale-shell">
+        <div class="visual-card scale-visual-card">
+          <div id="scaleVisual" class="scale-visual" aria-hidden="true"></div>
+          <div class="scale-meter" aria-label="Zoom progress from human scale to observable universe">
+            <span>Human</span>
+            <div class="meter-track"><div id="scaleMeterFill" class="meter-fill"></div></div>
+            <span>Universe</span>
+          </div>
+        </div>
+        <div class="control-card">
+          <div class="slider-row">
+            <label for="scaleSlider">Cosmic zoom level</label>
+            <output id="scaleOutput" for="scaleSlider">1 / 6</output>
+          </div>
+          <input id="scaleSlider" class="cosmic-slider" type="range" min="0" max="5" value="0" step="1">
+          <div id="scaleButtons" class="button-strip" aria-label="Scale level buttons"></div>
+          <article class="info-card animated-card" id="scaleInfo" aria-live="polite"></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="stars" class="section-panel content-section">
+      <div class="section-heading">
+        <p class="eyebrow">Module 02</p>
+        <h2>Stellar Evolution Simulator</h2>
+        <p>A star's starting mass decides how bright it becomes, how long it lives, and whether it ends quietly as a white dwarf or violently as a neutron star or black hole.</p>
+      </div>
+
+      <div class="interactive-shell star-shell">
+        <div class="control-card star-controls">
+          <div class="slider-row">
+            <label for="starMassSlider">Starting star mass</label>
+            <output id="starMassOutput" for="starMassSlider">Sun like star</output>
+          </div>
+          <input id="starMassSlider" class="cosmic-slider" type="range" min="0" max="2" value="1" step="1">
+          <div id="starTypeButtons" class="button-strip" aria-label="Star mass choices"></div>
+          <div id="starTimeline" class="timeline" aria-label="Interactive star life cycle timeline"></div>
+        </div>
+        <div class="visual-card star-detail-card">
+          <div id="starOrb" class="star-orb" aria-hidden="true"></div>
+          <article id="starInfo" class="info-card animated-card" aria-live="polite"></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="gravity" class="section-panel content-section">
+      <div class="section-heading">
+        <p class="eyebrow">Module 03</p>
+        <h2>Gravity and Black Hole Lab</h2>
+        <p>Experiment with surface gravity, mass, distance, event horizons, and the way gravity becomes extreme near compact objects.</p>
+      </div>
+
+      <div class="lab-grid">
+        <div class="control-card gravity-calculator">
+          <h3>Part A: Gravity Calculator</h3>
+          <p>Enter your Earth weight. The cards use: <strong>object weight = Earth weight × surface gravity ratio</strong>.</p>
+          <div class="input-group">
+            <label for="earthWeight">Earth weight</label>
+            <div class="number-input-wrap">
+              <input id="earthWeight" type="number" min="0" value="100" inputmode="decimal">
+              <span>lb or kg</span>
+            </div>
+          </div>
+          <button id="gravityButton" class="primary-button" type="button">Calculate Gravity</button>
+          <div id="gravityResults" class="gravity-results" aria-live="polite"></div>
+          <p class="small-note">The white dwarf and neutron star results are theoretical comparisons because ordinary objects cannot stand on those surfaces safely.</p>
+        </div>
+
+        <div class="control-card black-hole-lab">
+          <h3>Part B: Black Hole Simulator</h3>
+          <p>Adjust mass and distance. This simplified model shows an event horizon growing with mass and danger increasing as distance gets smaller.</p>
+          <div class="slider-row">
+            <label for="blackHoleMass">Black hole mass</label>
+            <output id="blackHoleMassOutput" for="blackHoleMass">50 solar masses</output>
+          </div>
+          <input id="blackHoleMass" class="cosmic-slider" type="range" min="5" max="100" value="50" step="1">
+          <div class="slider-row">
+            <label for="blackHoleDistance">Spacecraft distance</label>
+            <output id="blackHoleDistanceOutput" for="blackHoleDistance">120 million km</output>
+          </div>
+          <input id="blackHoleDistance" class="cosmic-slider" type="range" min="5" max="200" value="120" step="1">
+
+          <div class="black-hole-stage" aria-label="Black hole visual simulation">
+            <div id="blackHoleVisual" class="black-hole-visual" aria-hidden="true"></div>
+            <div id="spacecraft" class="spacecraft" aria-hidden="true"></div>
+          </div>
+          <article id="blackHoleInfo" class="info-card animated-card" aria-live="polite"></article>
+          <p class="small-note">This is a simplified educational model, not an exact general relativity simulation.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="science" class="section-panel content-section scientific-basis">
+      <div class="section-heading">
+        <p class="eyebrow">Scientific Basis</p>
+        <h2>How CosmoScope Connects to Real Astronomy</h2>
+      </div>
+      <div class="science-grid">
+        <article class="glass-card">
+          <h3>Scale, Light, and Distance</h3>
+          <p>Astronomers study the universe by comparing scale, measuring light, and using distance units such as kilometers, astronomical units, light-years, and megaparsecs.</p>
+        </article>
+        <article class="glass-card">
+          <h3>Stellar Evolution</h3>
+          <p>Stars evolve differently depending on mass. More massive stars burn fuel faster, shine brighter, and can end as neutron stars or black holes after supernova explosions.</p>
+        </article>
+        <article class="glass-card">
+          <h3>Gravity and Black Holes</h3>
+          <p>Gravity depends on mass and distance. A black hole's event horizon is the boundary where escape velocity is greater than the speed of light.</p>
+        </article>
+      </div>
+      <!-- Add source links here later, for example: NASA, ESA, Britannica, or classroom textbook references. -->
+      <div class="source-placeholders" aria-label="Source placeholders">
+        <a href="#science">NASA source placeholder</a>
+        <a href="#science">ESA source placeholder</a>
+        <a href="#science">Britannica source placeholder</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>CosmoScope: An Interactive Universe Explorer — built with HTML, CSS, and vanilla JavaScript.</p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
