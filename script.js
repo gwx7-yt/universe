@@ -413,58 +413,197 @@ function createLandmarkLayer() {
   return group;
 }
 
+function createStupaModel(scale = 1) {
+  const group = new THREE.Group();
+  group.scale.setScalar(scale);
+  const white = new THREE.MeshStandardMaterial({ color: 0xe9e3d2, roughness: 0.74 });
+  const gold = new THREE.MeshStandardMaterial({ color: 0xd5aa42, roughness: 0.44, metalness: 0.12 });
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(2.1, 2.35, 0.42, 64), white);
+  base.position.y = 0.21;
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(1.65, 64, 24, 0, Math.PI * 2, 0, Math.PI / 2), white);
+  dome.position.y = 0.42;
+  dome.scale.y = 0.58;
+  const harmika = new THREE.Mesh(new THREE.BoxGeometry(0.82, 0.56, 0.82), white);
+  harmika.position.y = 1.45;
+  const spire = new THREE.Mesh(new THREE.ConeGeometry(0.42, 1.9, 4), gold);
+  spire.position.y = 2.65;
+  spire.rotation.y = Math.PI / 4;
+  group.add(base, dome, harmika, spire);
+  return group;
+}
+
+function createAirportModel() {
+  const group = new THREE.Group();
+  const runway = new THREE.Mesh(new THREE.BoxGeometry(18, 0.035, 2.1), new THREE.MeshStandardMaterial({ color: 0x20232a, roughness: 0.82 }));
+  runway.position.y = 0.08;
+  runway.rotation.y = -0.18;
+  group.add(runway);
+  const stripeMaterial = new THREE.MeshBasicMaterial({ color: 0xf8f3d8, transparent: true, opacity: 0.75 });
+  for (let i = -7; i <= 7; i += 2) {
+    const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.04, 0.08), stripeMaterial);
+    stripe.position.set(i, 0.13, 0);
+    stripe.rotation.copy(runway.rotation);
+    group.add(stripe);
+  }
+  const terminal = new THREE.Mesh(new THREE.BoxGeometry(5.6, 0.45, 1.2), new THREE.MeshStandardMaterial({ color: 0x9a9588, roughness: 0.7 }));
+  terminal.position.set(0, 0.34, 2.2);
+  terminal.rotation.y = -0.18;
+  group.add(terminal);
+  return group;
+}
+
+function createKathmanduTerrain() {
+  const geometry = new THREE.PlaneGeometry(150, 112, 108, 84);
+  const colors = [];
+  const low = new THREE.Color(0x526b3f);
+  const urban = new THREE.Color(0x7d7567);
+  const ridge = new THREE.Color(0x27452d);
+  const dry = new THREE.Color(0x8a7651);
+  const color = new THREE.Color();
+  const position = geometry.attributes.position;
+
+  for (let i = 0; i < position.count; i += 1) {
+    const x = position.getX(i);
+    const y = position.getY(i);
+    const nx = x / 75;
+    const ny = y / 56;
+    const radial = Math.sqrt(nx * nx + ny * ny);
+    const elliptical = Math.sqrt((x / 62) ** 2 + (y / 38) ** 2);
+    const rim = THREE.MathUtils.smoothstep(elliptical, 0.54, 1.05);
+    const northRidge = Math.exp(-((y - 43) ** 2) / 95) * (5.5 + 1.4 * Math.sin(x * 0.12));
+    const southRidge = Math.exp(-((y + 41) ** 2) / 120) * (4.6 + 1.1 * Math.cos(x * 0.1));
+    const westRidge = Math.exp(-((x + 62) ** 2) / 130) * (3.8 + 0.8 * Math.sin(y * 0.16));
+    const eastRidge = Math.exp(-((x - 66) ** 2) / 145) * (3.4 + 0.8 * Math.cos(y * 0.14));
+    const undulation = Math.sin(x * 0.09) * Math.cos(y * 0.11) * 0.55 + Math.sin((x + y) * 0.045) * 0.5;
+    const basin = -1.6 * Math.exp(-(radial * radial) / 0.42);
+    const height = basin + rim * 2.2 + northRidge + southRidge + westRidge + eastRidge + undulation;
+    position.setZ(i, height);
+
+    if (elliptical < 0.48) color.copy(urban).lerp(low, 0.18 + Math.random() * 0.08);
+    else color.copy(low).lerp(ridge, Math.min(1, rim * 0.85)).lerp(dry, Math.max(0, Math.sin(x * 0.08) * 0.12));
+    colors.push(color.r, color.g, color.b);
+  }
+
+  geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+  geometry.computeVertexNormals();
+  const terrain = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.96, metalness: 0.02 }));
+  terrain.rotation.x = -Math.PI / 2;
+  return terrain;
+}
+
+function createEllipseRoad(rx, rz, opacity = 0.56, color = 0xf5e6bf, y = 0.18) {
+  const points = Array.from({ length: 260 }, (_, index) => {
+    const angle = index / 260 * Math.PI * 2;
+    const wobble = 1 + 0.035 * Math.sin(angle * 5) + 0.02 * Math.cos(angle * 9);
+    return new THREE.Vector3(Math.cos(angle) * rx * wobble, y, Math.sin(angle) * rz * wobble);
+  });
+  return new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(points), new THREE.LineBasicMaterial({ color, transparent: true, opacity }));
+}
+
+function createKathmanduBuildingField() {
+  const group = new THREE.Group();
+  const geometry = new THREE.BoxGeometry(1, 1, 1);
+  const concrete = new THREE.MeshStandardMaterial({ color: 0x8a8275, roughness: 0.82, metalness: 0.03, emissive: 0x1c130b, emissiveIntensity: 0.08 });
+  const brick = new THREE.MeshStandardMaterial({ color: 0x8e6f57, roughness: 0.86, metalness: 0.02, emissive: 0x1c0f08, emissiveIntensity: 0.06 });
+  const meshA = new THREE.InstancedMesh(geometry, concrete, 1150);
+  const meshB = new THREE.InstancedMesh(geometry, brick, 1150);
+  const matrix = new THREE.Matrix4();
+  let a = 0;
+  let b = 0;
+
+  for (let i = 0; i < 1150; i += 1) {
+    const angle = Math.random() * Math.PI * 2;
+    const r = Math.pow(Math.random(), 0.8);
+    let x = Math.cos(angle) * r * randomRange(8, 47);
+    let z = Math.sin(angle) * r * randomRange(6, 29);
+    x += Math.sin(z * 0.16) * 4;
+    if ((x / 54) ** 2 + (z / 34) ** 2 > 1) continue;
+    const height = randomRange(0.34, 1.25) * (Math.random() > 0.9 ? randomRange(1.25, 2.1) : 1);
+    const sx = randomRange(0.55, 1.45);
+    const sz = randomRange(0.55, 1.55);
+    matrix.compose(new THREE.Vector3(x, height / 2 + 0.18, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, randomRange(-0.18, 0.18), 0)), new THREE.Vector3(sx, height, sz));
+    if (Math.random() > 0.36) meshA.setMatrixAt(a++, matrix);
+    else meshB.setMatrixAt(b++, matrix);
+  }
+  meshA.count = a;
+  meshB.count = b;
+  group.add(meshA, meshB);
+  return group;
+}
+
+function createCityLights(count = 900) {
+  const geometry = new THREE.BufferGeometry();
+  const positions = new Float32Array(count * 3);
+  const colors = new Float32Array(count * 3);
+  const warm = new THREE.Color(0xffc46b);
+  const soft = new THREE.Color(0xf8f0d2);
+  const c = new THREE.Color();
+  for (let i = 0; i < count; i += 1) {
+    const angle = Math.random() * Math.PI * 2;
+    const r = Math.pow(Math.random(), 0.72);
+    const x = Math.cos(angle) * r * randomRange(10, 50);
+    const z = Math.sin(angle) * r * randomRange(7, 31);
+    positions[i * 3] = x;
+    positions[i * 3 + 1] = 0.72 + Math.random() * 0.22;
+    positions[i * 3 + 2] = z;
+    c.copy(warm).lerp(soft, Math.random() * 0.5);
+    colors[i * 3] = c.r;
+    colors[i * 3 + 1] = c.g;
+    colors[i * 3 + 2] = c.b;
+  }
+  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+  return new THREE.Points(geometry, new THREE.PointsMaterial({ size: 0.22, vertexColors: true, transparent: true, opacity: 0.66, depthWrite: false, blending: THREE.AdditiveBlending }));
+}
+
 function createCityLayer() {
   const group = new THREE.Group();
-  const valley = new THREE.Mesh(new THREE.PlaneGeometry(118, 86, 36, 24), new THREE.MeshStandardMaterial({ color: 0x102017, roughness: 0.92, metalness: 0.04 }));
-  valley.rotation.x = -Math.PI / 2;
-  valley.position.y = -0.04;
-  const terrain = valley.geometry.attributes.position;
-  for (let i = 0; i < terrain.count; i += 1) {
-    const x = terrain.getX(i);
-    const y = terrain.getY(i);
-    const edge = Math.max(Math.abs(x) / 59, Math.abs(y) / 43);
-    terrain.setZ(i, Math.max(0, edge - 0.55) * randomRange(2, 8));
-  }
-  valley.geometry.computeVertexNormals();
-  group.add(valley);
+  group.add(createKathmanduTerrain());
+  group.add(createEllipseRoad(43, 25, 0.72, 0xf6ead0, 0.2));
+  group.add(createEllipseRoad(28, 16, 0.22, 0xffc46b, 0.21));
 
-  const roadMaterial = new THREE.LineBasicMaterial({ color: 0xdde7ff, transparent: true, opacity: 0.24 });
-  for (let i = -8; i <= 8; i += 1) {
-    const bend = Math.sin(i * 0.7) * 6;
-    group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-54, 0.08, i * 4.6), new THREE.Vector3(-18, 0.08, i * 4.1 + bend), new THREE.Vector3(54, 0.08, i * 4.8 - bend)]), roadMaterial));
+  const arterialMaterial = new THREE.LineBasicMaterial({ color: 0xf8e8c8, transparent: true, opacity: 0.5 });
+  [
+    [new THREE.Vector3(-55, 0.23, -4), new THREE.Vector3(-20, 0.23, -2), new THREE.Vector3(0, 0.23, 0), new THREE.Vector3(46, 0.23, 3)],
+    [new THREE.Vector3(-12, 0.23, -30), new THREE.Vector3(-4, 0.23, -12), new THREE.Vector3(2, 0.23, 0), new THREE.Vector3(20, 0.23, 26)],
+    [new THREE.Vector3(-40, 0.23, 18), new THREE.Vector3(-12, 0.23, 8), new THREE.Vector3(12, 0.23, -3), new THREE.Vector3(54, 0.23, -12)],
+    [new THREE.Vector3(35, 0.23, -26), new THREE.Vector3(24, 0.23, -10), new THREE.Vector3(8, 0.23, 2), new THREE.Vector3(-18, 0.23, 24)]
+  ].forEach(points => group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), arterialMaterial)));
+
+  const streetMaterial = new THREE.LineBasicMaterial({ color: 0xffd79a, transparent: true, opacity: 0.17 });
+  for (let i = -7; i <= 7; i += 1) {
+    group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-36, 0.22, i * 3.2), new THREE.Vector3(0, 0.22, i * 2.6 + Math.sin(i) * 1.2), new THREE.Vector3(36, 0.22, i * 3.1)]), streetMaterial));
   }
-  for (let i = -6; i <= 6; i += 1) {
-    group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(i * 6.2, 0.08, -38), new THREE.Vector3(i * 5.1, 0.08, 0), new THREE.Vector3(i * 6.7, 0.08, 38)]), roadMaterial));
+  for (let i = -5; i <= 5; i += 1) {
+    group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(i * 6.2, 0.22, -22), new THREE.Vector3(i * 4.8 + Math.cos(i) * 1.4, 0.22, 0), new THREE.Vector3(i * 6.4, 0.22, 22)]), streetMaterial));
   }
 
-  const buildingGeometry = new THREE.BoxGeometry(1, 1, 1);
-  const buildingMaterial = new THREE.MeshStandardMaterial({ color: 0x172338, roughness: 0.5, metalness: 0.28, emissive: 0x0d1b2a, emissiveIntensity: 0.3 });
-  const buildings = new THREE.InstancedMesh(buildingGeometry, buildingMaterial, 650);
-  const matrix = new THREE.Matrix4();
-  for (let i = 0; i < buildings.count; i += 1) {
-    const ring = Math.pow(Math.random(), 0.55);
-    const angle = Math.random() * Math.PI * 2;
-    const x = Math.cos(angle) * ring * randomRange(8, 48);
-    const z = Math.sin(angle) * ring * randomRange(6, 32);
-    const height = randomRange(0.9, 9.5) * (Math.random() > 0.94 ? 1.8 : 1);
-    matrix.compose(new THREE.Vector3(x, height / 2, z), new THREE.Quaternion(), new THREE.Vector3(randomRange(0.7, 2.7), height, randomRange(0.7, 2.7)));
-    buildings.setMatrixAt(i, matrix);
-  }
-  group.add(buildings);
+  group.add(createKathmanduBuildingField());
+  group.add(createCityLights());
+  const riverPoints = Array.from({ length: 120 }, (_, i) => new THREE.Vector3(-58 + i * 0.98, 0.26, Math.sin(i * 0.13) * 4.8 - 7 + Math.cos(i * 0.05) * 2.2));
+  group.add(makeLine(riverPoints, 0x78c7d8, 0.7));
 
-  const riverPoints = Array.from({ length: 100 }, (_, i) => new THREE.Vector3(-58 + i * 1.18, 0.12, Math.sin(i * 0.16) * 6 - 8));
-  group.add(makeLine(riverPoints, 0x4cc9f0, 0.66));
+  const dharahara = createDharaharaModel(0.08);
+  dharahara.position.set(3.2, 0.2, 1.8);
+  group.add(dharahara);
+  const boudha = createStupaModel(0.82);
+  boudha.position.set(24, 0.26, -10);
+  group.add(boudha);
+  const swayambhuHill = new THREE.Mesh(new THREE.SphereGeometry(4.4, 32, 16), new THREE.MeshStandardMaterial({ color: 0x2f4b2e, roughness: 0.9 }));
+  swayambhuHill.position.set(-31, -1.9, 9);
+  swayambhuHill.scale.set(1.4, 0.34, 0.9);
+  group.add(swayambhuHill);
+  const swayambhu = createStupaModel(0.58);
+  swayambhu.position.set(-31, 1.0, 9);
+  group.add(swayambhu);
+  const airport = createAirportModel();
+  airport.position.set(31, 0.25, 7);
+  group.add(airport);
 
-  for (let i = 0; i < 7; i += 1) {
-    const mountain = new THREE.Mesh(new THREE.ConeGeometry(randomRange(8, 17), randomRange(12, 28), 4), new THREE.MeshStandardMaterial({ color: 0x162033, roughness: 0.9 }));
-    mountain.position.set(-54 + i * 18, 4, -47);
-    mountain.rotation.y = Math.PI / 4;
-    group.add(mountain);
-  }
-
-  const marker = createDharaharaModel(0.08);
-  marker.position.set(4, 0, 2);
-  group.add(marker);
+  const haze = new THREE.Mesh(new THREE.PlaneGeometry(98, 62), new THREE.MeshBasicMaterial({ color: 0xffd6a0, transparent: true, opacity: 0.055, depthWrite: false, blending: THREE.AdditiveBlending }));
+  haze.rotation.x = -Math.PI / 2;
+  haze.position.y = 1.25;
+  group.add(haze);
   return group;
 }
 
