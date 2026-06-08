@@ -42,7 +42,6 @@ const ui = {
   scaleLocation: document.querySelector("#scaleLocation"),
   scaleBrief: document.querySelector("#scaleBrief"),
   perspectiveText: document.querySelector("#perspectiveText"),
-  perspectiveGraphic: document.querySelector("#perspectiveGraphic"),
   journeySteps: document.querySelector("#journeySteps"),
   journeyProgress: document.querySelector("#journeyProgress")
 };
@@ -986,7 +985,6 @@ function updatePanels(levelIndex) {
   ui.scaleLocation.textContent = level.location;
   ui.scaleBrief.textContent = level.description;
   ui.perspectiveText.textContent = level.perspective;
-  ui.perspectiveGraphic.dataset.graphic = level.graphic;
   ui.journeyProgress.style.setProperty("--journey-progress", `${(levelIndex / (scaleLevels.length - 1)) * 100}%`);
   [...ui.journeySteps.children].forEach((step, index) => {
     step.classList.toggle("active", index === levelIndex);

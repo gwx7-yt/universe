@@ -12,7 +12,10 @@
 
     <section class="command-panel" aria-label="Scale controls and current scientific information">
       <label for="scaleZoom">Scale Navigation</label>
-      <input id="scaleZoom" class="scale-range" type="range" min="0" max="14" value="0" step="0.001" aria-label="Travel through cosmic scale levels">
+      <div class="scale-slider-wrap">
+        <input id="scaleZoom" class="scale-range" type="range" min="0" max="14" value="0" step="0.001" aria-label="Travel through cosmic scale levels">
+        <div class="scale-slider-labels" aria-hidden="true"><span>Human</span><span>Universe</span></div>
+      </div>
       <div class="scale-navigator" aria-label="Journey through scale hierarchy">
         <div class="journey-rail"><span id="journeyProgress"></span></div>
         <div id="journeySteps" class="journey-steps"></div>
@@ -27,7 +30,6 @@
     <aside class="perspective-panel" aria-live="polite" aria-label="Perspective discovery">
       <span class="panel-kicker">Perspective</span>
       <p id="perspectiveText">One life can feel enormous from the inside, yet Ram stands as a single point on a planet shared by billions.</p>
-      <div id="perspectiveGraphic" class="perspective-graphic" aria-hidden="true"></div>
     </aside>
 
     <div id="loadingScreen" class="loading-screen">
