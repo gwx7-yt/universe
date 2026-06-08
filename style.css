@@ -18,6 +18,8 @@ body {
   width: 100%;
   min-height: 100%;
   overflow: hidden;
+  touch-action: none;
+  overscroll-behavior: none;
   background: var(--space-black);
   color: var(--stellar-white);
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;

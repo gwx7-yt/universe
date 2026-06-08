@@ -415,6 +415,8 @@ function createHumanLayer() {
   const shirt = new THREE.MeshStandardMaterial({ color: 0x18263d, roughness: 0.55, metalness: 0.08 });
   const pants = new THREE.MeshStandardMaterial({ color: 0x121722, roughness: 0.72 });
   const shoe = new THREE.MeshStandardMaterial({ color: 0x07090f, roughness: 0.65 });
+  const eyeMaterial = new THREE.MeshBasicMaterial({ color: 0x05070b });
+  const accentMaterial = new THREE.MeshStandardMaterial({ color: 0x4cc9f0, roughness: 0.35, metalness: 0.2, emissive: 0x123244, emissiveIntensity: 0.18 });
   const glow = new THREE.MeshBasicMaterial({ color: 0x4cc9f0, transparent: true, opacity: 0.09, blending: THREE.AdditiveBlending });
 
   const hips = new THREE.Mesh(new THREE.CapsuleGeometry(0.32, 0.42, 8, 18), pants);
@@ -434,7 +436,25 @@ function createHumanLayer() {
   const nose = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.12, 12), skin);
   nose.position.set(0, 2.56, 0.24);
   nose.rotation.x = Math.PI / 2;
-  group.add(hips, torso, neck, head, hairCap, nose);
+  const leftEye = new THREE.Mesh(new THREE.SphereGeometry(0.025, 12, 8), eyeMaterial);
+  leftEye.position.set(-0.075, 2.61, 0.225);
+  const rightEye = leftEye.clone();
+  rightEye.position.x = 0.075;
+  const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.014, 0.01), eyeMaterial);
+  mouth.position.set(0, 2.46, 0.238);
+  const leftEar = new THREE.Mesh(new THREE.SphereGeometry(0.055, 16, 8), skin);
+  leftEar.position.set(-0.245, 2.57, 0.015);
+  leftEar.scale.set(0.55, 1, 0.32);
+  const rightEar = leftEar.clone();
+  rightEar.position.x = 0.245;
+  const shoulders = new THREE.Mesh(new THREE.CapsuleGeometry(0.11, 0.72, 8, 16), shirt);
+  shoulders.position.y = 2.05;
+  shoulders.rotation.z = Math.PI / 2;
+  const jacketLine = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.82, 0.018), accentMaterial);
+  jacketLine.position.set(0, 1.7, 0.235);
+  const belt = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.055, 0.18), shoe);
+  belt.position.set(0, 1.08, 0.05);
+  group.add(hips, torso, neck, head, hairCap, nose, leftEye, rightEye, mouth, leftEar, rightEar, shoulders, jacketLine, belt);
 
   [[-0.46, 1.86, -0.18], [0.46, 1.86, 0.18]].forEach(([x, y, zRot], side) => {
     const upper = new THREE.Mesh(new THREE.CapsuleGeometry(0.085, 0.62, 8, 16), shirt);
@@ -446,7 +466,15 @@ function createHumanLayer() {
     const hand = new THREE.Mesh(new THREE.SphereGeometry(0.09, 18, 10), skin);
     hand.position.set(x + (side === 0 ? -0.16 : 0.16), y - 1.08, 0.03);
     hand.scale.set(0.8, 1.05, 0.55);
-    group.add(upper, forearm, hand);
+    const elbow = new THREE.Mesh(new THREE.SphereGeometry(0.078, 16, 8), shirt);
+    elbow.position.set(x + (side === 0 ? -0.06 : 0.06), y - 0.48, 0.01);
+    group.add(upper, forearm, hand, elbow);
+    for (let finger = -1; finger <= 1; finger += 1) {
+      const digit = new THREE.Mesh(new THREE.CapsuleGeometry(0.012, 0.08, 4, 8), skin);
+      digit.position.set(hand.position.x + finger * 0.028, hand.position.y - 0.075, 0.055);
+      digit.rotation.z = finger * 0.12;
+      group.add(digit);
+    }
   });
 
   [[-0.18, 0.52, 0.05], [0.18, 0.52, -0.05]].forEach(([x, y, zRot], side) => {
@@ -456,9 +484,11 @@ function createHumanLayer() {
     const shin = new THREE.Mesh(new THREE.CapsuleGeometry(0.09, 0.68, 8, 16), pants);
     shin.position.set(x + (side === 0 ? -0.03 : 0.03), y - 0.42, 0);
     shin.rotation.z = -zRot * 0.5;
+    const knee = new THREE.Mesh(new THREE.SphereGeometry(0.095, 16, 8), pants);
+    knee.position.set(x + (side === 0 ? -0.015 : 0.015), y - 0.08, 0.02);
     const foot = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.1, 0.46), shoe);
     foot.position.set(x + (side === 0 ? -0.05 : 0.05), 0.08, 0.12);
-    group.add(thigh, shin, foot);
+    group.add(thigh, shin, knee, foot);
   });
 
   const aura = new THREE.Mesh(new THREE.CapsuleGeometry(0.68, 1.75, 8, 18), glow);
@@ -1213,14 +1243,23 @@ function getPinchDistance() {
 }
 
 function handlePointerDown(event) {
+  renderer.domElement.setPointerCapture?.(event.pointerId);
   activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
-  if (activePointers.size === 2) lastPinchDistance = getPinchDistance();
+  if (activePointers.size === 2) {
+    lastPinchDistance = getPinchDistance();
+    if (state.mode === "scale") {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }
+  }
 }
 
 function handlePointerMove(event) {
   if (!activePointers.has(event.pointerId)) return;
   activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
   if (state.mode !== "scale" || activePointers.size < 2) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
   const nextDistance = getPinchDistance();
   if (!nextDistance || !lastPinchDistance) {
     lastPinchDistance = nextDistance;
@@ -1232,8 +1271,13 @@ function handlePointerMove(event) {
 }
 
 function handlePointerEnd(event) {
+  renderer.domElement.releasePointerCapture?.(event.pointerId);
   activePointers.delete(event.pointerId);
   if (activePointers.size < 2) lastPinchDistance = null;
+}
+
+function preventBrowserPinchZoom(event) {
+  if (event.touches?.length > 1) event.preventDefault();
 }
 
 function connectEvents() {
@@ -1243,11 +1287,13 @@ function connectEvents() {
     if (state.mode !== "scale") return;
     setScaleTargetZoom(state.cameraRig.targetZoom + event.deltaY * 0.0025);
   }, { passive: true });
-  renderer.domElement.addEventListener("pointerdown", handlePointerDown);
-  renderer.domElement.addEventListener("pointermove", handlePointerMove);
-  renderer.domElement.addEventListener("pointerup", handlePointerEnd);
-  renderer.domElement.addEventListener("pointercancel", handlePointerEnd);
-  renderer.domElement.addEventListener("lostpointercapture", handlePointerEnd);
+  renderer.domElement.addEventListener("pointerdown", handlePointerDown, { capture: true });
+  renderer.domElement.addEventListener("pointermove", handlePointerMove, { capture: true });
+  renderer.domElement.addEventListener("pointerup", handlePointerEnd, { capture: true });
+  renderer.domElement.addEventListener("pointercancel", handlePointerEnd, { capture: true });
+  renderer.domElement.addEventListener("lostpointercapture", handlePointerEnd, { capture: true });
+  window.addEventListener("touchmove", preventBrowserPinchZoom, { passive: false });
+  window.addEventListener("gesturestart", event => event.preventDefault());
   ui.stellarMass.addEventListener("input", () => {
     state.stellar.presetIndex = Number(ui.stellarMass.value);
     state.stellar.running = false;
