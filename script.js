@@ -40,6 +40,7 @@ const ui = {
   scaleMetricLabel: document.querySelector("#scaleMetricLabel"),
   scaleMetric: document.querySelector("#scaleMetric"),
   scaleLocation: document.querySelector("#scaleLocation"),
+  scaleOrder: document.querySelector("#scaleOrder"),
   scaleBrief: document.querySelector("#scaleBrief"),
   perspectiveText: document.querySelector("#perspectiveText"),
   journeySteps: document.querySelector("#journeySteps"),
@@ -52,9 +53,10 @@ const scaleLevels = [
     reference: "Ram",
     metricLabel: "Approx. height",
     metric: "1.7 m",
+    scientificScaleMeters: 1.7,
     location: "Nepal",
-    description: "Ram stands on a quiet dark platform as the personal reference point for the whole journey.",
-    perspective: "One life can feel enormous from the inside, yet Ram stands as a single point on a planet shared by billions.",
+    description: "Ram is a human-scale reference. The figure is illustrative; the stated height is an ordinary adult reference, not a universal human average.",
+    perspective: "A person is large on a personal scale, yet only about 10⁰ meters tall on a planet 10⁷ meters wide.",
     graphic: "people",
     type: "personal scale"
   },
@@ -62,38 +64,58 @@ const scaleLevels = [
     name: "Landmark",
     reference: "Dharahara",
     metricLabel: "Height",
-    metric: "72 m",
+    metric: "~72 m",
+    scientificScaleMeters: 72,
     location: "Kathmandu, Nepal",
-    description: "Dharahara rises above Ram, turning human height into architectural scale.",
-    perspective: "Dharahara feels tall from the street; stacked about 1,400 times, it would only begin to touch the edge of space.",
+    description: "Dharahara is shown as an architectural-scale reference; its modern reconstructed tower is about 72 meters tall.",
+    perspective: "Dharahara feels tall from the street, yet it is still hundreds of times shorter than the Kármán line at 100 km.",
     graphic: "tower",
     type: "landmark scale"
   },
   {
     name: "City",
-    reference: "Kathmandu Metropolitan Area",
-    metricLabel: "Approx. area",
-    metric: "~50 km² urban core",
+    reference: "Kathmandu Metropolitan City",
+    metricLabel: "Municipal area",
+    metric: "~49.45 km²",
+    scientificScaleMeters: 8_000,
     location: "Kathmandu Valley, Nepal",
-    description: "Kathmandu becomes an abstract valley metropolis of roads, dense blocks, river corridors, and distant mountains.",
-    perspective: "Kathmandu can hold a lifetime of memories, yet light crosses its heart almost instantly.",
+    description: "Kathmandu is represented as an abstract city footprint, not a literal map; its municipality covers about 49.45 square kilometers.",
+    perspective: "Light crosses an 8 km city span in roughly 27 microseconds, even though a city can contain a lifetime of experience.",
     graphic: "city",
     type: "geographic scale"
   },
-  { name: "Earth", reference: "Planet Earth", metricLabel: "Diameter", metric: "12,742 km", location: "Solar System", description: "A living planet with oceans, continents, clouds, polar ice, atmosphere, and a tiny city marker.", perspective: "Every road, temple, home, and hillside in Kathmandu becomes a tiny mark on Earth's turning surface.", graphic: "people", type: "planetary scale" },
-  { name: "Earth-Moon System", reference: "Earth and Moon", metricLabel: "Average distance", metric: "384,400 km", location: "Near-Earth space", description: "Earth sits at the center while the Moon revolves across a surprisingly large orbital gap.", perspective: "The Moon feels close in the sky, but the darkness between us is wide enough to humble every planet.", graphic: "city", type: "orbital scale" },
-  { name: "Solar System", reference: "Sun and planets", metricLabel: "Scale", metric: "100+ AU", location: "Sun's planetary system", description: "Planet markers, orbital paths, the asteroid belt, and the Kuiper belt replace Earth-Moon detail.", perspective: "Our world becomes one moving spark in the Sun's wide family of orbits.", graphic: "city", type: "planetary system" },
-  { name: "Oort Cloud", reference: "Comet cloud", metricLabel: "Outer reach", metric: "~100,000 AU", location: "Solar boundary", description: "The Solar System shrinks into a bright point inside a vast spherical swarm of comet particles.", perspective: "The Sun does not end suddenly; it fades into a silent cloud of ancient comets.", graphic: "city", type: "solar influence" },
-  { name: "Nearest Stars", reference: "Nearby stellar neighborhood", metricLabel: "Scale", metric: "Several light-years", location: "Local interstellar space", description: "The Sun becomes one marker among Alpha Centauri, Barnard's Star, Sirius, and other nearby lights.", perspective: "Between neighboring stars lies a darkness so wide that light itself needs years to cross it.", graphic: "city", type: "interstellar scale" },
-  { name: "Orion Arm", reference: "Local spiral arm", metricLabel: "Scale", metric: "Thousands of light-years", location: "Milky Way", description: "Nearby stars dissolve into a stellar river of nebulae and star-forming regions.", perspective: "The Sun becomes a grain inside a luminous river of stars and nebulae.", graphic: "city", type: "galactic neighborhood" },
-  { name: "Milky Way", reference: "Home galaxy", metricLabel: "Diameter", metric: "~100,000 light-years", location: "Local Group", description: "A full spiral galaxy appears with a bright bulge, dust lanes, and luminous arms.", perspective: "Everything we call home vanishes inside a spiral city of hundreds of billions of suns.", graphic: "city", type: "galactic scale" },
-  { name: "Local Group", reference: "Galaxy group", metricLabel: "Scale", metric: "~10 million light-years", location: "Local Group", description: "The Milky Way, Andromeda, Triangulum, and dwarf galaxies become separate islands of light.", perspective: "Even galaxies have neighbors; islands of stars drift together through deep time.", graphic: "city", type: "galaxy group" },
-  { name: "Virgo Cluster", reference: "Galaxy cluster", metricLabel: "Scale", metric: "Tens of millions of light-years", location: "Virgo region", description: "Hundreds of galaxies form a dense cluster structure where the Milky Way becomes insignificant.", perspective: "Whole galaxies become lights in a cluster, like windows in an impossible cosmic city.", graphic: "city", type: "cluster scale" },
-  { name: "Laniakea Supercluster", reference: "Supercluster basin", metricLabel: "Scale", metric: "~520 million light-years", location: "Laniakea", description: "Galaxy clusters become connected nodes as filament structures begin to dominate the view.", perspective: "Our galaxy rides within a vast current of matter flowing through the universe.", graphic: "city", type: "supercluster scale" },
-  { name: "Cosmic Web", reference: "Large-scale structure", metricLabel: "Scale", metric: "Billions of light-years", location: "Observable cosmos", description: "Glowing filaments and voids form an alien network of matter on the largest known scales.", perspective: "At the largest scales, matter becomes a glowing web of roots, lightning, and memory.", graphic: "city", type: "cosmic structure" },
-  { name: "Observable Universe", reference: "Cosmic horizon", metricLabel: "Diameter", metric: "~93 billion light-years", location: "Observable universe", description: "The entire cosmic web fits inside the horizon of light that has had time to reach us.", perspective: "Every mountain, city, person, planet, star, and galaxy explored so far fits inside this boundary.", graphic: "city", type: "cosmic horizon" }
+  { name: "Earth", reference: "Planet Earth", metricLabel: "Mean diameter", metric: "12,742 km", scientificScaleMeters: 12_742_000, location: "Solar System", description: "Earth is shown with continents, clouds, polar ice, atmosphere, and a city marker; the globe is stylized but preserves planetary identity.", perspective: "Every road, temple, home, and hillside in Kathmandu becomes a tiny mark on Earth's 12,742 km-wide surface.", graphic: "people", type: "planetary scale" },
+  { name: "Earth-Moon System", reference: "Earth and Moon", metricLabel: "Mean center distance", metric: "384,400 km", scientificScaleMeters: 384_400_000, location: "Near-Earth space", description: "The Earth-Moon gap is intentionally expanded on screen so both bodies remain visible, but the stated mean distance is the real center-to-center value.", perspective: "About thirty Earth diameters fit between Earth and the Moon on average.", graphic: "city", type: "orbital scale" },
+  { name: "Solar System", reference: "Sun, planets, and Kuiper Belt", metricLabel: "Neptune orbit / Kuiper Belt", metric: "30 AU / ~50 AU", scientificScaleMeters: 7.48e12, location: "Sun's planetary system", description: "Planet sizes and orbit spacing are not drawn to the same scale; this view emphasizes the correct planetary order, asteroid belt, and Kuiper Belt region.", perspective: "Earth orbits at 1 AU; Neptune orbits near 30 AU, and the Kuiper Belt extends to roughly 50 AU.", graphic: "city", type: "planetary system" },
+  { name: "Oort Cloud", reference: "Hypothetical comet reservoir", metricLabel: "Estimated outer extent", metric: "~100,000 AU (~1.6 ly)", scientificScaleMeters: 1.496e16, location: "Outer Solar System", description: "The Oort Cloud is rendered as sparse points, not a solid shell, because it is an inferred, extremely diffuse reservoir of icy bodies.", perspective: "The Sun does not end at a hard wall; its comet reservoir may thin outward toward interstellar space over up to about 100,000 AU.", graphic: "city", type: "solar influence" },
+  { name: "Nearest Stars", reference: "Alpha Centauri system", metricLabel: "Distance from Sun", metric: "4.37 light-years", scientificScaleMeters: 4.13e16, location: "Local interstellar space", description: "The nearby-star scene marks the Sun with several bright neighbors; Alpha Centauri is the nearest star system at about 4.37 light-years.", perspective: "Light leaving the Sun today reaches Alpha Centauri more than four years later.", graphic: "city", type: "interstellar scale" },
+  { name: "Orion Arm", reference: "Local (Orion-Cygnus) Arm", metricLabel: "Approx. length", metric: "~10,000 light-years", scientificScaleMeters: 9.46e19, location: "Milky Way", description: "The Sun sits in the Local, or Orion-Cygnus, Arm: a smaller spiral-arm segment containing nebulae, star-forming regions, and nearby bright stars.", perspective: "The Sun is a local grain within a stellar stream thousands of light-years long.", graphic: "city", type: "galactic neighborhood" },
+  { name: "Milky Way", reference: "Home galaxy", metricLabel: "Stellar disk diameter", metric: "~100,000 light-years", scientificScaleMeters: 9.46e20, location: "Local Group", description: "The Milky Way is shown as a barred spiral galaxy with a bright central region, disk, arms, and dust lanes; it is not a single star-like object.", perspective: "Everything in the Solar System vanishes inside a galaxy containing hundreds of billions of stars.", graphic: "city", type: "galactic scale" },
+  { name: "Local Group", reference: "Galaxy group", metricLabel: "Approx. diameter", metric: "~10 million light-years", scientificScaleMeters: 9.46e22, location: "Local Group", description: "The Local Group contains the Milky Way, Andromeda, Triangulum, and many dwarf galaxies spread across roughly ten million light-years.", perspective: "Even galaxies have neighbors; these islands of stars are gravitationally associated across deep time.", graphic: "city", type: "galaxy group" },
+  { name: "Virgo Cluster", reference: "Nearby galaxy cluster", metricLabel: "Approx. diameter", metric: "~15 million light-years", scientificScaleMeters: 1.42e23, location: "Virgo constellation region", description: "The Virgo Cluster is represented as many separate galaxies, not one galaxy; it contains on the order of a thousand or more member galaxies.", perspective: "In a galaxy cluster, whole galaxies become individual points in a much larger gravitational structure.", graphic: "city", type: "cluster scale" },
+  { name: "Laniakea Supercluster", reference: "Supercluster basin of attraction", metricLabel: "Approx. extent", metric: "~520 million light-years", scientificScaleMeters: 4.92e24, location: "Laniakea", description: "Laniakea is a gravitational basin of attraction mapped from galaxy motions, shown here as connected flows and cluster nodes rather than a bound object with a sharp edge.", perspective: "Our galaxy participates in large-scale flows within a supercluster-sized basin of matter.", graphic: "city", type: "supercluster scale" },
+  { name: "Cosmic Web", reference: "Large-scale structure", metricLabel: "Typical scale", metric: "Billions of light-years", scientificScaleMeters: 1e26, location: "Observable Universe", description: "The web view uses filamentary nodes and voids inspired by cosmological simulations; it is schematic, not fantasy lightning or a literal map.", perspective: "At the largest mapped scales, galaxies trace filaments around vast underdense voids.", graphic: "city", type: "cosmic structure" },
+  { name: "Observable Universe", reference: "Observable cosmic horizon", metricLabel: "Comoving diameter", metric: "~93 billion light-years", scientificScaleMeters: 8.8e26, location: "Observable universe", description: "This boundary is the observable universe—the region from which light has had time to reach us—not necessarily the entire universe.", perspective: "Everything explored here fits inside our observable horizon, while the whole universe may extend far beyond it.", graphic: "city", type: "cosmic horizon" }
 ];
 
+
+function scientificLogProgress(levelIndex) {
+  const minLog = Math.log10(scaleLevels[0].scientificScaleMeters);
+  const maxLog = Math.log10(scaleLevels[scaleLevels.length - 1].scientificScaleMeters);
+  const levelLog = Math.log10(scaleLevels[levelIndex].scientificScaleMeters);
+  return THREE.MathUtils.clamp(((levelLog - minLog) / (maxLog - minLog)) * 100, 0, 100);
+}
+
+function formatOrderOfMagnitude(meters) {
+  if (!Number.isFinite(meters) || meters <= 0) return "reference scale";
+  const exponent = Math.floor(Math.log10(meters));
+  return `10${toSuperscript(exponent)} m reference`;
+}
+
+function toSuperscript(value) {
+  const map = { "-": "⁻", "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹" };
+  return String(value).split("").map(char => map[char] || char).join("");
+}
 
 const journeyLabels = [
   "Human",
@@ -983,9 +1005,10 @@ function updatePanels(levelIndex) {
   ui.scaleMetricLabel.textContent = level.metricLabel;
   ui.scaleMetric.textContent = level.metric;
   ui.scaleLocation.textContent = level.location;
+  ui.scaleOrder.textContent = formatOrderOfMagnitude(level.scientificScaleMeters);
   ui.scaleBrief.textContent = level.description;
   ui.perspectiveText.textContent = level.perspective;
-  ui.journeyProgress.style.setProperty("--journey-progress", `${(levelIndex / (scaleLevels.length - 1)) * 100}%`);
+  ui.journeyProgress.style.setProperty("--journey-progress", `${scientificLogProgress(levelIndex)}%`);
   [...ui.journeySteps.children].forEach((step, index) => {
     step.classList.toggle("active", index === levelIndex);
     step.classList.toggle("passed", index < levelIndex);
