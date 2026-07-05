@@ -91,7 +91,7 @@ const scaleLevels = [
   { name: "Virgo Cluster", reference: "Galaxy cluster", metricLabel: "Scale", metric: "Tens of millions of light-years", location: "Virgo region", description: "Hundreds of galaxies form a dense cluster structure where the Milky Way becomes insignificant.", perspective: "Whole galaxies become lights in a cluster, like windows in an impossible cosmic city.", graphic: "city", type: "cluster scale" },
   { name: "Laniakea Supercluster", reference: "Supercluster basin", metricLabel: "Scale", metric: "~520 million light-years", location: "Laniakea", description: "Galaxy clusters become connected nodes as filament structures begin to dominate the view.", perspective: "Our galaxy rides within a vast current of matter flowing through the universe.", graphic: "city", type: "supercluster scale" },
   { name: "Cosmic Web", reference: "Large-scale structure", metricLabel: "Scale", metric: "Billions of light-years", location: "Observable cosmos", description: "Glowing filaments and voids form an alien network of matter on the largest known scales.", perspective: "At the largest scales, matter becomes a glowing web of roots, lightning, and memory.", graphic: "city", type: "cosmic structure" },
-  { name: "Observable Universe", reference: "Cosmic horizon", metricLabel: "Diameter", metric: "~93 billion light-years", location: "Observable universe", description: "The entire cosmic web fits inside the horizon of light that has had time to reach us.", perspective: "Every mountain, city, person, planet, star, and galaxy explored so far fits inside this boundary.", graphic: "city", type: "cosmic horizon" }
+  { name: "Observable Universe", reference: "Cosmic horizon", metricLabel: "Diameter", metric: "~93 billion light-years", location: "Observable universe", description: "The observable universe contains the portion of the cosmic web from which light has had time to reach Earth.", perspective: "Earth is at the observational center of this conceptual view; the wider universe may continue far beyond what we can see.", graphic: "city", type: "cosmic horizon" }
 ];
 
 
@@ -894,16 +894,95 @@ function makeTextSprite(lines, color = "#f8f9fa") {
   return new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, blending: THREE.AdditiveBlending }));
 }
 
+function createCosmicWebVolume({ radius = 118, filamentCount = 32, pointsPerFilament = 18, color = 0x9bdfff } = {}) {
+  const group = new THREE.Group();
+  const clusterGeometry = new THREE.SphereGeometry(1, 12, 8);
+  const clusterMaterial = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.78, blending: THREE.AdditiveBlending });
+  const clusters = new THREE.InstancedMesh(clusterGeometry, clusterMaterial, filamentCount * Math.ceil(pointsPerFilament / 3));
+  const matrix = new THREE.Matrix4();
+  let clusterIndex = 0;
+
+  const placeInsideHorizon = (vector, margin = 0) => {
+    const maxLength = Math.max(radius * 0.2, radius * 0.94 - margin);
+    if (vector.length() > maxLength) vector.setLength(randomRange(maxLength * 0.82, maxLength));
+    return vector;
+  };
+
+  for (let i = 0; i < filamentCount; i += 1) {
+    const start = placeInsideHorizon(new THREE.Vector3(randomRange(-1, 1), randomRange(-1, 1), randomRange(-1, 1)).normalize().multiplyScalar(randomRange(radius * 0.12, radius * 0.82)));
+    const direction = new THREE.Vector3(randomRange(-1, 1), randomRange(-0.45, 0.45), randomRange(-1, 1)).normalize();
+    const bend = new THREE.Vector3(randomRange(-0.35, 0.35), randomRange(-0.35, 0.35), randomRange(-0.35, 0.35));
+    const filamentPoints = [];
+
+    for (let j = 0; j < pointsPerFilament; j += 1) {
+      const t = j / (pointsPerFilament - 1);
+      const wave = Math.sin(t * Math.PI * 2 + i) * radius * 0.045;
+      const point = start.clone()
+        .addScaledVector(direction, (t - 0.5) * radius * randomRange(0.72, 1.28))
+        .addScaledVector(bend, Math.sin(t * Math.PI) * radius * 0.42)
+        .add(new THREE.Vector3(randomRange(-5, 5), randomRange(-4, 4) + wave, randomRange(-5, 5)));
+      placeInsideHorizon(point);
+      filamentPoints.push(point);
+      if (j % 3 === 0 && clusterIndex < clusters.count) {
+        const size = randomRange(0.8, 2.4) * (j === 0 || j === pointsPerFilament - 1 ? 1.9 : 1);
+        matrix.compose(point, new THREE.Quaternion(), new THREE.Vector3(size, size, size));
+        clusters.setMatrixAt(clusterIndex, matrix);
+        clusterIndex += 1;
+      }
+    }
+
+    group.add(makeLine(filamentPoints, color, randomRange(0.16, 0.34)));
+  }
+
+  clusters.count = clusterIndex;
+  group.add(clusters);
+  group.add(createPoints(2200, radius * 0.9, 0x1d3557, 0xbde8ff, { size: 0.18, opacity: 0.16, power: 0.82 }));
+
+  for (let i = 0; i < 10; i += 1) {
+    const voidShell = new THREE.Mesh(
+      new THREE.SphereGeometry(randomRange(12, 24), 32, 16),
+      new THREE.MeshBasicMaterial({ color: 0x05070b, transparent: true, opacity: 0.2, wireframe: true })
+    );
+    const voidRadius = voidShell.geometry.parameters.radius;
+    voidShell.position.copy(placeInsideHorizon(new THREE.Vector3(randomRange(-radius, radius), randomRange(-radius * 0.65, radius * 0.65), randomRange(-radius, radius)), voidRadius));
+    group.add(voidShell);
+  }
+
+  return group;
+}
+
 function createObservableUniverseLayer() {
   const group = new THREE.Group();
-  const web = createNetworkLayer(480, 145, 0x9bdfff, 520);
-  web.scale.setScalar(0.72);
+  const horizonRadius = 122;
+  const web = createCosmicWebVolume({ radius: horizonRadius * 0.86, filamentCount: 36, pointsPerFilament: 20, color: 0x9bdfff });
   group.add(web);
-  group.add(new THREE.Mesh(new THREE.SphereGeometry(122, 96, 48), new THREE.MeshBasicMaterial({ color: 0x4cc9f0, transparent: true, opacity: 0.045, wireframe: true, blending: THREE.AdditiveBlending })));
-  const label = makeTextSprite(["Observable Universe", "93 Billion Light Years"]);
+
+  const horizonMaterial = new THREE.MeshBasicMaterial({
+    color: 0x4cc9f0,
+    transparent: true,
+    opacity: 0.018,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending
+  });
+  group.add(new THREE.Mesh(new THREE.SphereGeometry(horizonRadius, 96, 48), horizonMaterial));
+  group.add(makeCircle(horizonRadius, 0x4cc9f0, 0.11, 256));
+
+  const observer = new THREE.Mesh(
+    new THREE.SphereGeometry(1.6, 16, 8),
+    new THREE.MeshBasicMaterial({ color: 0xffd166, transparent: true, opacity: 0.92, blending: THREE.AdditiveBlending })
+  );
+  group.add(observer);
+
+  const label = makeTextSprite(["Observable Universe", "Conceptual view · ~93 billion ly"]);
   label.position.set(0, 92, 0);
-  label.scale.set(74, 37, 1);
+  label.scale.set(82, 41, 1);
   group.add(label);
+
+  const centerLabel = makeTextSprite(["Earth", "observational center"], "#ffd166");
+  centerLabel.position.set(0, -16, 0);
+  centerLabel.scale.set(30, 15, 1);
+  group.add(centerLabel);
+
   return group;
 }
 
